@@ -16,7 +16,8 @@ export default function Header({
   setDarkMode, 
   onOpenSettings,
   onOpenNewForm,
-  profile
+  profile,
+  cloudSynced
 }) {
   return (
     <header className="app-header no-print">
@@ -25,8 +26,17 @@ export default function Header({
           <BookHeart size={30} />
         </div>
         <div className="header-title-box">
-          <h1>نکاح رجسٹریشن پورٹل</h1>
-          <p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ margin: 0 }}>نکاح رجسٹریشن پورٹل</h1>
+            <span 
+              className={`badge ${cloudSynced ? 'badge-green' : 'badge-gold'}`} 
+              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+              title={cloudSynced ? 'گوگل فائر بیس سے منسلک ہے' : 'لوکل موڈ پر فعال ہے'}
+            >
+              {cloudSynced ? 'کلاؤڈ آن لائن 🟢' : 'آف لائن لوکل 🟡'}
+            </span>
+          </div>
+          <p style={{ marginTop: '2px' }}>
             {profile?.name ? profile.name : 'ڈیجیٹل نکاح مینجمنٹ سسٹم'} 
             {profile?.licenseNo && (
               <span style={{ marginRight: '8px', opacity: 0.85, fontSize: '0.8rem' }} className="font-num">

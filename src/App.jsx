@@ -7,11 +7,13 @@ import PrintCertificateModal from './components/PrintCertificateModal';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import SettingsModal from './components/SettingsModal';
 import { storageService } from './utils/storageService';
-import { LayoutDashboard, FilePlus2, BookOpen, Settings } from 'lucide-react';
+import { firebaseService } from './utils/firebaseService';
+import { LayoutDashboard, FilePlus2, BookOpen, Settings, Cloud, CloudOff } from 'lucide-react';
 
 export default function App() {
   const [records, setRecords] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [cloudSynced, setCloudSynced] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard', 'new_form', 'records'
   const [editingRecord, setEditingRecord] = useState(null);
   const [selectedRecordForView, setSelectedRecordForView] = useState(null);
@@ -32,36 +34,64 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // ابتدائی ڈیٹا لوڈ کرنا
+  // ابتدائی ڈیٹا لوڈ کرنا اور کلاؤڈ ریئل ٹائم لسنر
   useEffect(() => {
-    const loadedRecords = storageService.getRecords();
+    // فوری لوکل ڈیٹا دکھائیں
+    const localRecords = storageService.getRecords();
     const loadedProfile = storageService.getProfile();
-    setRecords(loadedRecords);
+    setRecords(localRecords);
     setProfile(loadedProfile);
+
+    // فائر بیس کلاؤڈ سے ریئل ٹائم ہم آہنگی (Real-time Cloud Sync)
+    const unsubscribe = firebaseService.subscribeToRecords(
+      (cloudRecords) => {
+        setCloudSynced(true);
+        if (cloudRecords && cloudRecords.length > 0) {
+          setRecords(cloudRecords);
+          storageService.saveRecords(cloudRecords);
+        } else if (localRecords.length > 0) {
+          // اگر کلاؤڈ خالی ہو تو لوکل ریکارڈز کلاؤڈ پر منتقل کر دیں
+          firebaseService.syncAllLocalToCloud(localRecords);
+        }
+      },
+      (err) => {
+        console.warn('Firebase sync offline fallback:', err);
+        setCloudSynced(false);
+      }
+    );
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
   // نیا یا ترمیم شدہ ریکارڈ محفوظ کرنا
-  const handleSaveRecord = (recordData) => {
+  const handleSaveRecord = async (recordData) => {
     if (editingRecord) {
       const updated = storageService.updateRecord(editingRecord.id, recordData);
       if (updated) {
         setRecords(storageService.getRecords());
         setEditingRecord(null);
         setCurrentTab('records');
+        // کلاؤڈ پر ہم آہنگ کریں
+        firebaseService.saveRecord(updated);
       }
     } else {
       const created = storageService.addRecord(recordData);
       setRecords(storageService.getRecords());
       setCurrentTab('records');
-      // فورا پرنٹ کا آپشن دکھائیں
       setSelectedRecordForPrint(created);
+      // کلاؤڈ پر محفوظ کریں
+      firebaseService.saveRecord(created);
     }
   };
 
   // ریکارڈ ڈیلیٹ کرنا
-  const handleDeleteRecord = (id) => {
+  const handleDeleteRecord = async (id) => {
     storageService.deleteRecord(id);
     setRecords(storageService.getRecords());
+    // کلاؤڈ سے بھی ڈیلیٹ کریں
+    firebaseService.deleteRecord(id);
   };
 
   // ایڈٹ موڈ میں کھولنا
@@ -75,6 +105,7 @@ export default function App() {
   const handleSaveProfile = (newProfile) => {
     storageService.saveProfile(newProfile);
     setProfile(newProfile);
+    firebaseService.saveProfile(newProfile);
   };
 
   return (
@@ -91,6 +122,7 @@ export default function App() {
           setCurrentTab('new_form');
         }}
         profile={profile}
+        cloudSynced={cloudSynced}
       />
 
       {/* نیویگیشن ٹیبز بار */}
