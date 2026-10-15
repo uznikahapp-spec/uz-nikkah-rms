@@ -335,18 +335,20 @@ export default function RecordsList({
                           <Printer size={17} color="var(--gold-700)" />
                         </button>
 
-                        {/* 4. ڈیلیٹ */}
-                        <button 
-                          className="btn-icon" 
-                          title="ڈیلیٹ کریں"
-                          onClick={() => {
-                            if (window.confirm(`کیا آپ واقعی نکاح نامہ "${r.folderTitle || r.serialNo}" کو ڈیلیٹ کرنا چاہتے ہیں؟`)) {
-                              onDeleteRecord(r.id);
-                            }
-                          }}
-                        >
-                          <Trash2 size={17} color="#dc2626" />
-                        </button>
+                        {/* 4. ڈیلیٹ (صرف چیف رجسٹرار ایڈمن کو نظر آئے گا) */}
+                        {authService.can('delete_record') && (
+                          <button 
+                            className="btn-icon" 
+                            title="ڈیلیٹ کریں (صرف ایڈمن)"
+                            onClick={() => {
+                              if (window.confirm(`کیا آپ واقعی نکاح نامہ "${r.folderTitle || r.serialNo}" کو ڈیلیٹ کرنا چاہتے ہیں؟`)) {
+                                onDeleteRecord(r.id);
+                              }
+                            }}
+                          >
+                            <Trash2 size={17} color="#dc2626" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

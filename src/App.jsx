@@ -6,11 +6,14 @@ import RecordsList from './components/RecordsList';
 import PrintCertificateModal from './components/PrintCertificateModal';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import SettingsModal from './components/SettingsModal';
+import LoginScreen from './components/LoginScreen';
 import { storageService } from './utils/storageService';
 import { firebaseService } from './utils/firebaseService';
+import { authService } from './utils/authService';
 import { LayoutDashboard, FilePlus2, BookOpen, Settings, Cloud, CloudOff } from 'lucide-react';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
   const [records, setRecords] = useState([]);
   const [profile, setProfile] = useState(null);
   const [cloudSynced, setCloudSynced] = useState(false);
@@ -108,6 +111,13 @@ export default function App() {
     firebaseService.saveProfile(newProfile);
   };
 
+  // اگر صارف لاگ ان نہ ہو تو لاگ ان اسکرین دکھائیں
+  if (!currentUser) {
+    return (
+      <LoginScreen onLoginSuccess={(user) => setCurrentUser(user)} />
+    );
+  }
+
   return (
     <div className="app-container">
       {/* ہیڈر بار */}
@@ -116,13 +126,24 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        onOpenSettings={() => setShowSettingsModal(true)}
+        onOpenSettings={() => {
+          if (currentUser?.role === 'admin') {
+            setShowSettingsModal(true);
+          } else {
+            alert('صرف چیف رجسٹرار (Admin) کو سیٹنگز اور بیک اپ تبدیل کرنے کا اختیار ہے۔');
+          }
+        }}
         onOpenNewForm={() => {
           setEditingRecord(null);
           setCurrentTab('new_form');
         }}
         profile={profile}
         cloudSynced={cloudSynced}
+        currentUser={currentUser}
+        onLogout={() => {
+          authService.logout();
+          setCurrentUser(null);
+        }}
       />
 
       {/* نیویگیشن ٹیبز بار */}

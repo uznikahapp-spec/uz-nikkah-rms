@@ -6,7 +6,10 @@ import {
   PlusCircle, 
   Settings, 
   DatabaseBackup,
-  UserCheck
+  UserCheck,
+  LogOut,
+  Shield,
+  User
 } from 'lucide-react';
 
 export default function Header({ 
@@ -17,8 +20,12 @@ export default function Header({
   onOpenSettings,
   onOpenNewForm,
   profile,
-  cloudSynced
+  cloudSynced,
+  currentUser,
+  onLogout
 }) {
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <header className="app-header no-print">
       <div className="header-brand">
@@ -26,7 +33,7 @@ export default function Header({
           <BookHeart size={30} />
         </div>
         <div className="header-title-box">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h1 style={{ margin: 0 }}>نکاح رجسٹریشن پورٹل</h1>
             <span 
               className={`badge ${cloudSynced ? 'badge-green' : 'badge-gold'}`} 
@@ -47,7 +54,22 @@ export default function Header({
         </div>
       </div>
 
-      <div className="header-actions">
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* فعال صارف کا بیج */}
+        {currentUser && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card-subtle)', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <User size={15} color={isAdmin ? 'var(--gold-600)' : 'var(--primary-700)'} />
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                {currentUser.name}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: isAdmin ? 'var(--gold-700)' : 'var(--primary-700)', fontWeight: 600 }}>
+                {isAdmin ? '👑 چیف رجسٹرار (Admin)' : '✍️ اسسٹنٹ کاتب (Staff)'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* نیا اندراج بٹن */}
         <button 
           className="btn btn-gold" 
@@ -67,13 +89,25 @@ export default function Header({
           {darkMode ? <Sun size={19} color="#fbbf24" /> : <Moon size={19} color="#064e3b" />}
         </button>
 
-        {/* ترتیبات و بیک اپ */}
+        {/* ترتیبات و بیک اپ (صرف چیف ایڈمن کو نظر آئے گا) */}
+        {isAdmin && (
+          <button 
+            className="btn-icon" 
+            onClick={onOpenSettings}
+            title="نکاح خواں ترتیبات، عملہ اور ڈیٹا بیک اپ"
+          >
+            <Settings size={19} />
+          </button>
+        )}
+
+        {/* لاگ آؤٹ بٹن */}
         <button 
           className="btn-icon" 
-          onClick={onOpenSettings}
-          title="نکاح خواں ترتیبات اور ڈیٹا بیک اپ"
+          onClick={onLogout}
+          title="پورٹل سے لاگ آؤٹ کریں"
+          style={{ color: '#dc2626' }}
         >
-          <Settings size={19} />
+          <LogOut size={19} />
         </button>
       </div>
     </header>
