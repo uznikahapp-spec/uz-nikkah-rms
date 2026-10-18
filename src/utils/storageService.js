@@ -323,27 +323,46 @@ export const storageService = {
     }
   },
 
-  // ریکارڈ کو نارملائز کرنا تاکہ کوئی فیلڈ خالی نہ رہے
+  // ریکارڈ کو نارملائز کرنا تاکہ کوئی فیلڈ خالی نہ رہے اور تمام دستاویزات محفوظ رہیں
   normalizeRecord(r) {
-    const agreed = parseInt(r.fee?.agreedAmount || '0', 10);
-    const received = parseInt(r.fee?.receivedAmount || '0', 10);
+    if (!r) return null;
+    const isNumAgreed = /^\d+$/.test(String(r.fee?.agreedAmount || '').trim());
+    const agreed = isNumAgreed ? parseInt(r.fee.agreedAmount, 10) : 0;
+    const isNumRecv = /^\d+$/.test(String(r.fee?.receivedAmount || '').trim());
+    const received = isNumRecv ? parseInt(r.fee.receivedAmount, 10) : 0;
     const remaining = Math.max(0, agreed - received);
+
+    const vaultDocs = {
+      groomCnicFront: r.vaultDocuments?.groomCnicFront || r.groom?.cnicImageFront || null,
+      groomCnicBack: r.vaultDocuments?.groomCnicBack || r.groom?.cnicImageBack || null,
+      brideCnicFront: r.vaultDocuments?.brideCnicFront || r.bride?.cnicImageFront || null,
+      brideCnicBack: r.vaultDocuments?.brideCnicBack || r.bride?.cnicImageBack || null,
+      computerizedNikkahImg: r.vaultDocuments?.computerizedNikkahImg || null,
+      manualNikkahImgs: Array.isArray(r.vaultDocuments?.manualNikkahImgs) ? r.vaultDocuments.manualNikkahImgs : []
+    };
 
     return {
       ...r,
-      folderTitle: r.folderTitle || `${r.serialNo || '00'} - ${r.groom?.name || 'دولہا'} و ${r.bride?.name || 'دلہن'}`,
+      folderTitle: r.folderTitle || `${r.serialNo || '00'} - ${r.groom?.name || 'دولہا'} و ${r.bride?.name || 'دلہن'}${r.officiantType === 'guest' ? ' (مہمان نکاح خواں)' : ''}`,
       registrationType: r.registrationType || (r.tracking?.isComputerizedReceived ? 'computerized' : 'manual_only'),
       officiantType: r.officiantType || 'self',
       guestOfficiant: r.guestOfficiant || { name: '', fatherName: '', masjidOrArea: '', phone: '' },
       skippedColumns: Array.isArray(r.skippedColumns) ? r.skippedColumns : [],
       columnSignatures: r.columnSignatures || {},
-      vaultDocuments: {
-        groomCnicFront: r.vaultDocuments?.groomCnicFront || r.groom?.cnicImageFront || null,
-        groomCnicBack: r.vaultDocuments?.groomCnicBack || r.groom?.cnicImageBack || null,
-        brideCnicFront: r.vaultDocuments?.brideCnicFront || r.bride?.cnicImageFront || null,
-        brideCnicBack: r.vaultDocuments?.brideCnicBack || r.bride?.cnicImageBack || null,
-        computerizedNikkahImg: r.vaultDocuments?.computerizedNikkahImg || null,
-        manualNikkahImgs: r.vaultDocuments?.manualNikkahImgs || []
+      vaultDocuments: vaultDocs,
+      groom: {
+        ...r.groom,
+        dob: r.groom?.dob || '',
+        hasVakil: r.groom?.hasVakil ?? (r.groom?.vakilName ? true : false),
+        cnicImageFront: vaultDocs.groomCnicFront,
+        cnicImageBack: vaultDocs.groomCnicBack
+      },
+      bride: {
+        ...r.bride,
+        dob: r.bride?.dob || '',
+        hasVakil: r.bride?.hasVakil ?? (r.bride?.vakilName ? true : false),
+        cnicImageFront: vaultDocs.brideCnicFront,
+        cnicImageBack: vaultDocs.brideCnicBack
       },
       delivery: {
         isDelivered: r.delivery?.isDelivered ?? r.tracking?.isDelivered ?? false,
@@ -353,8 +372,8 @@ export const storageService = {
         deliveryNotes: r.delivery?.deliveryNotes || ''
       },
       fee: {
-        agreedAmount: String(agreed || ''),
-        receivedAmount: String(received || ''),
+        agreedAmount: r.fee?.agreedAmount !== undefined && r.fee?.agreedAmount !== '' ? String(r.fee.agreedAmount) : 'حسب معمول',
+        receivedAmount: r.fee?.receivedAmount !== undefined ? String(r.fee.receivedAmount) : '',
         remainingAmount: remaining
       }
     };

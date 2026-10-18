@@ -30,9 +30,20 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
   const [deliveryPhone, setDeliveryPhone] = useState(record.groom?.phone || '');
   const [deliveryNotes, setDeliveryNotes] = useState('نکاح نامہ حوالے کر دیا گیا ہے۔');
 
-  const agreed = parseInt(record.fee?.agreedAmount || '0', 10);
-  const received = parseInt(record.fee?.receivedAmount || '0', 10);
-  const remaining = Math.max(0, agreed - received);
+  const agreedNum = parseInt(record.fee?.agreedAmount || '0', 10);
+  const receivedNum = parseInt(record.fee?.receivedAmount || '0', 10);
+  const isNumericAgreed = !isNaN(agreedNum) && agreedNum > 0;
+  const remaining = isNumericAgreed ? Math.max(0, agreedNum - (isNaN(receivedNum) ? 0 : receivedNum)) : 0;
+
+  // محفوظ طریقے سے رقم یا اردو ٹیکسٹ فارمیٹ کرنے کا فنکشن
+  const formatMoneyOrText = (val) => {
+    if (val === undefined || val === null || val === '') return '-';
+    const str = String(val).trim();
+    if (/^\d+$/.test(str)) {
+      return `${Number(str).toLocaleString()} روپے`;
+    }
+    return str;
+  };
 
   // فوری ترسیل کی تصدیق کرنا
   const handleMarkDelivered = () => {
@@ -111,13 +122,23 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
             {/* فیس سمری */}
             <div style={{ background: 'var(--bg-card-subtle)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>فیس اکاؤنٹنگ:</span>
-              <div>طے شدہ: <strong className="font-num">{agreed ? `${agreed.toLocaleString()} روپے` : '0'}</strong></div>
-              <div>وصول شدہ: <span className="font-num" style={{ color: '#059669', fontWeight: 700 }}>{received ? `${received.toLocaleString()} روپے` : '0'}</span></div>
-              <div>
-                بقایا: <span className="font-num" style={{ color: remaining > 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>
-                  {remaining > 0 ? `${remaining.toLocaleString()} روپے واجب الادا` : 'مکمل ادا شدہ'}
-                </span>
-              </div>
+              {isNumericAgreed ? (
+                <>
+                  <div>طے شدہ: <strong className="font-num">{agreedNum.toLocaleString()} روپے</strong></div>
+                  <div>وصول شدہ: <span className="font-num" style={{ color: '#059669', fontWeight: 700 }}>{receivedNum ? `${receivedNum.toLocaleString()} روپے` : '0'}</span></div>
+                  <div>
+                    بقایا: <span className="font-num" style={{ color: remaining > 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>
+                      {remaining > 0 ? `${remaining.toLocaleString()} روپے واجب الادا` : 'مکمل ادا شدہ'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>فیس تفصیل: <strong style={{ color: 'var(--primary-800)' }}>{record.fee?.agreedAmount || 'حسب معمول'}</strong></div>
+                  <div>وصول شدہ: <span className="font-num" style={{ color: '#059669', fontWeight: 700 }}>{receivedNum ? `${receivedNum.toLocaleString()} روپے` : 'حسب ضابطہ'}</span></div>
+                  <div>اسٹیٹس: <span className="badge badge-green">تصدیق شدہ</span></div>
+                </>
+              )}
             </div>
 
             {/* ترسیل کی کیفیت */}
@@ -336,38 +357,70 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
             
             {/* دولہا کارڈ */}
             <div style={{ border: '1.5px solid var(--primary-500)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)' }}>
-              <h4 style={{ color: 'var(--primary-800)', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '12px' }}>
-                کوائف دولہا (Groom)
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '12px' }}>
+                <h4 style={{ color: 'var(--primary-800)', margin: 0 }}>
+                  کوائف دولہا (Groom)
+                </h4>
+                {record.groom?.hasVakil === false ? (
+                  <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>✓ خود حاضر مجلس</span>
+                ) : (
+                  <span className="badge badge-gold" style={{ fontSize: '0.72rem' }}>وکیل مقرر شدہ</span>
+                )}
+              </div>
               <p><strong>نام گرامی:</strong> {record.groom?.name}</p>
               <p><strong>ولدیت:</strong> {record.groom?.fatherName}</p>
               <p><strong>شناختی کارڈ:</strong> <span className="font-num">{record.groom?.cnic || 'درج نہیں'}</span></p>
-              <p><strong>عمر / حیثیت:</strong> {record.groom?.age} سال ({record.groom?.maritalStatus})</p>
+              <p>
+                <strong>عمر / پیدائش:</strong> <span className="font-num">{record.groom?.age || '-'}</span> سال
+                {record.groom?.dob && <span className="font-num" style={{ color: 'var(--text-muted)', marginRight: '6px', fontSize: '0.84rem' }}>(تاریخ پیدائش: {record.groom.dob})</span>}
+                {' '}({record.groom?.maritalStatus || 'کنوارا'})
+              </p>
               <p><strong>فون نمبر:</strong> <span className="font-num">{record.groom?.phone || '-'}</span></p>
               <p><strong>سکونت / پتہ:</strong> {record.groom?.address || '-'}</p>
-              {record.groom?.vakilName && (
+              {record.groom?.hasVakil !== false && record.groom?.vakilName ? (
                 <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-color)' }}>
                   <strong>وکیل دولہا:</strong> {record.groom.vakilName} (ولد {record.groom.vakilFatherName || '-'})
                   {record.groom.vakilCnic && <div className="font-num" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>شناختی کارڈ: {record.groom.vakilCnic}</div>}
+                  {record.groom.vakilAddress && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>سکونت: {record.groom.vakilAddress}</div>}
+                </div>
+              ) : (
+                <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#16a34a' }}>
+                  دولہا بذات خود حاضر مجلس تھا، وکیل کی حاجت نہ تھی۔
                 </div>
               )}
             </div>
 
             {/* دلہن کارڈ */}
             <div style={{ border: '1.5px solid var(--gold-500)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)' }}>
-              <h4 style={{ color: 'var(--gold-700)', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '12px' }}>
-                کوائف دلہن (Bride)
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '12px' }}>
+                <h4 style={{ color: 'var(--gold-700)', margin: 0 }}>
+                  کوائف دلہن (Bride)
+                </h4>
+                {record.bride?.hasVakil === false ? (
+                  <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>✓ خود حاضر مجلس</span>
+                ) : (
+                  <span className="badge badge-gold" style={{ fontSize: '0.72rem' }}>وکیل مقرر شدہ</span>
+                )}
+              </div>
               <p><strong>نام گرامی:</strong> {record.bride?.name}</p>
               <p><strong>ولدیت:</strong> {record.bride?.fatherName}</p>
               <p><strong>شناختی کارڈ:</strong> <span className="font-num">{record.bride?.cnic || 'درج نہیں'}</span></p>
-              <p><strong>عمر / حیثیت:</strong> {record.bride?.age} سال ({record.bride?.maritalStatus})</p>
+              <p>
+                <strong>عمر / پیدائش:</strong> <span className="font-num">{record.bride?.age || '-'}</span> سال
+                {record.bride?.dob && <span className="font-num" style={{ color: 'var(--text-muted)', marginRight: '6px', fontSize: '0.84rem' }}>(تاریخ پیدائش: {record.bride.dob})</span>}
+                {' '}({record.bride?.maritalStatus || 'کنواری'})
+              </p>
               <p><strong>فون نمبر:</strong> <span className="font-num">{record.bride?.phone || '-'}</span></p>
               <p><strong>سکونت / پتہ:</strong> {record.bride?.address || '-'}</p>
-              {record.bride?.vakilName && (
+              {record.bride?.hasVakil !== false && record.bride?.vakilName ? (
                 <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-color)' }}>
                   <strong>وکیل دلہن:</strong> {record.bride.vakilName} (ولد {record.bride.vakilFatherName || '-'})
                   {record.bride.vakilCnic && <div className="font-num" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>شناختی کارڈ: {record.bride.vakilCnic}</div>}
+                  {record.bride.vakilAddress && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>سکونت: {record.bride.vakilAddress}</div>}
+                </div>
+              ) : (
+                <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#16a34a' }}>
+                  دلہن بذات خود حاضر مجلس تھی اور خود ایجاب و قبول کیا۔
                 </div>
               )}
             </div>
@@ -379,9 +432,9 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
           <div style={{ background: 'var(--bg-card-subtle)', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
             <h4 style={{ color: 'var(--primary-800)', marginBottom: '8px' }}>حق مہر و شرائطِ نکاح:</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              <div>کل رقم مہر: <strong className="font-num">{record.mehr?.totalAmount ? `${Number(record.mehr.totalAmount).toLocaleString()} روپے` : '-'}</strong></div>
-              <div>معجل (نقد): <span className="font-num">{record.mehr?.muajjal ? `${Number(record.mehr.muajjal).toLocaleString()} روپے` : '-'}</span></div>
-              <div>مؤجل (واجب الادا): <span className="font-num">{record.mehr?.muwajjal ? `${Number(record.mehr.muwajjal).toLocaleString()} روپے` : '-'}</span></div>
+              <div>کل رقم مہر: <strong className="font-num" style={{ color: '#064e3b' }}>{formatMoneyOrText(record.mehr?.totalAmount)}</strong> {record.mehr?.totalAmountWords ? `(${record.mehr.totalAmountWords})` : ''}</div>
+              <div>معجل (نقد): <span className="font-num">{formatMoneyOrText(record.mehr?.muajjal)}</span></div>
+              <div>مؤجل (واجب الادا): <span className="font-num">{formatMoneyOrText(record.mehr?.muwajjal)}</span></div>
               <div>سونے کا وزن / زیور: <span>{record.mehr?.goldWeight || '-'}</span></div>
             </div>
             {record.mehr?.specialConditions && (
@@ -392,7 +445,7 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
           </div>
 
           {/* شرعی گواہان */}
-          <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)' }}>
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)', marginBottom: '16px' }}>
             <h4 style={{ color: 'var(--primary-800)', marginBottom: '10px' }}>شرعی گواہانِ نکاح:</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
               <div>
@@ -405,6 +458,48 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
               </div>
             </div>
           </div>
+
+          {/* دستخط و مہر جات (خانہ ۲۵) گیلری */}
+          {(() => {
+            const signs = record.columnSignatures || {};
+            const signatureList = [
+              { key: 'groomSignatureImg', label: 'دستخط دولہا', src: signs.groomSignatureImg },
+              { key: 'groomVakilSignatureImg', label: 'دستخط وکیل دولہا', src: signs.groomVakilSignatureImg },
+              { key: 'brideSignatureImg', label: 'دستخط دلہن', src: signs.brideSignatureImg },
+              { key: 'brideVakilSignatureImg', label: 'دستخط وکیل دلہن', src: signs.brideVakilSignatureImg },
+              { key: 'shariWitness1SignatureImg', label: 'دستخط شرعی گواہ ۱', src: signs.shariWitness1SignatureImg || signs.witnessesSignatureImg },
+              { key: 'shariWitness2SignatureImg', label: 'دستخط شرعی گواہ ۲', src: signs.shariWitness2SignatureImg },
+              { key: 'marriageWitness1SignatureImg', label: 'دستخط گواہ شادی ۱', src: signs.marriageWitness1SignatureImg },
+              { key: 'marriageWitness2SignatureImg', label: 'دستخط گواہ شادی ۲', src: signs.marriageWitness2SignatureImg },
+              { key: 'nikkahKhawanSignatureImg', label: 'دستخط نکاح خواں', src: signs.nikkahKhawanSignatureImg },
+              { key: 'registrarSealImg', label: 'مہر و دستخط رجسٹرار', src: signs.registrarSealImg }
+            ].filter(s => !!s.src);
+
+            if (signatureList.length === 0) return null;
+
+            return (
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)' }}>
+                <h4 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
+                  دستخط و مہر جات گیلری (خانہ ۲۵ - کل {signatureList.length} دستخط محفوظ):
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '10px' }}>
+                  {signatureList.map(sig => (
+                    <div 
+                      key={sig.key} 
+                      style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', background: 'var(--bg-card-subtle)', textAlign: 'center', cursor: 'pointer' }}
+                      onClick={() => setActiveImagePreview({ src: sig.src, title: sig.label })}
+                    >
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, display: 'block', marginBottom: '4px', color: 'var(--primary-800)' }}>
+                        {sig.label}
+                      </span>
+                      <img src={sig.src} alt={sig.label} style={{ width: '100%', height: '55px', objectFit: 'contain', background: '#ffffff', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                      <span style={{ fontSize: '0.68rem', color: 'var(--primary-700)', display: 'block', marginTop: '4px' }}>زوم کریں 🔍</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
 

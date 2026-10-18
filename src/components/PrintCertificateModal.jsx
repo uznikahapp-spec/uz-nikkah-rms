@@ -22,6 +22,16 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
 
   const hijriStr = record.hijriDate || getHijriDate(record.nikkahDate);
 
+  // محفوظ طریقے سے رقم یا اردو ٹیکسٹ فارمیٹ کرنے کا فنکشن
+  const formatMoneyOrText = (val) => {
+    if (val === undefined || val === null || val === '') return '-';
+    const str = String(val).trim();
+    if (/^\d+$/.test(str)) {
+      return `${Number(str).toLocaleString()} روپے`;
+    }
+    return str;
+  };
+
   // نکاح خواں کی معلومات
   const officiantName = record.officiantType === 'guest' && record.guestOfficiant?.name
     ? record.guestOfficiant.name
@@ -31,8 +41,13 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
     ? `${record.guestOfficiant.name} ولد ${record.guestOfficiant.fatherName || '-'} (${record.guestOfficiant.masjidOrArea || '-'}) فون: ${record.guestOfficiant.phone || '-'}`
     : `${profile?.name || 'مولانا قاری محمد اسماعیل صدیقی'} (لائسنس: ${profile?.licenseNo || 'NK-LHR-2024/89'}) - ${profile?.officeAddress || 'لاہور'}`;
 
+  // نکاح رجسٹرار کی معلومات
+  const registrarDetails = `${record.registrar?.name || profile?.name || 'مولانا قاری محمد اسماعیل صدیقی'} ولد ${record.registrar?.fatherName || profile?.fatherName || '-'} (لائسنس: ${record.registrar?.licenseNo || profile?.licenseNo || 'NK-LHR-2024/89'}, وارڈ/UC: ${record.registrar?.wardOrUc || profile?.wardOrUc || '-'})`;
+
   // سنگل پرت کارڈ بنانے کا فنکشن
   const renderSingleCopy = (copyItem, index) => {
+    const signs = record.columnSignatures || {};
+
     return (
       <div 
         key={copyItem.id} 
@@ -134,7 +149,10 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۳۔ دولہا کی عمر:
               </strong>
-              <div><span className="font-num" style={{ fontWeight: 700 }}>{record.groom?.age || '-'}</span> سال</div>
+              <div>
+                <span className="font-num" style={{ fontWeight: 700 }}>{record.groom?.age || '-'}</span> سال
+                {record.groom?.dob && <span style={{ marginRight: '6px', fontSize: '0.78rem', color: '#64748b' }}>(تاریخ پیدائش: {record.groom.dob})</span>}
+              </div>
             </div>
 
             <div className="cert-column-box" style={{ border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', background: '#ffffff' }}>
@@ -160,7 +178,10 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۶۔ دلہن کی عمر:
               </strong>
-              <div><span className="font-num" style={{ fontWeight: 700 }}>{record.bride?.age || '-'}</span> سال</div>
+              <div>
+                <span className="font-num" style={{ fontWeight: 700 }}>{record.bride?.age || '-'}</span> سال
+                {record.bride?.dob && <span style={{ marginRight: '6px', fontSize: '0.78rem', color: '#64748b' }}>(تاریخ پیدائش: {record.bride.dob})</span>}
+              </div>
             </div>
 
             {/* کالم ۷ و ۸ */}
@@ -168,13 +189,13 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۷۔ وکیلِ دلہن معہ ولدیت و سکونت:
               </strong>
-              {record.bride?.vakilName ? (
+              {record.bride?.hasVakil !== false && record.bride?.vakilName ? (
                 <div>
-                  {record.bride.vakilName} ولد {record.bride.vakilFatherName || '-'} (شناختی کارڈ: <span className="font-num">{record.bride.vakilCnic || '-'}</span>)
+                  <strong>{record.bride.vakilName}</strong> ولد {record.bride.vakilFatherName || '-'} (شناختی کارڈ: <span className="font-num">{record.bride.vakilCnic || '-'}</span>)
                   <div style={{ fontSize: '0.78rem', color: '#4b5563' }}>سکونت: {record.bride.vakilAddress || '-'}</div>
                 </div>
               ) : (
-                <div style={{ color: '#9ca3af' }}>دلہن نے خود ایجاب و قبول کیا</div>
+                <div style={{ color: '#15803d', fontWeight: 600 }}>دلہن خود بنفسِ نفیس مجلس میں حاضر تھی اور خود ایجاب و قبول کیا۔</div>
               )}
             </div>
 
@@ -182,7 +203,11 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۸۔ گواہانِ تقرری وکیلِ دلہن:
               </strong>
-              <div style={{ fontSize: '0.8rem' }}>{record.bride?.vakilWitnesses || 'دلہن نے خود ایجاب و قبول کیا۔'}</div>
+              {record.bride?.hasVakil !== false && record.bride?.vakilName ? (
+                <div style={{ fontSize: '0.8rem' }}>{record.bride?.vakilWitnesses || '-'}</div>
+              ) : (
+                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>دلہن کی بنفسِ نفیس موجودگی کے باعث وکیل کی حاجت نہ تھی۔</div>
+              )}
             </div>
 
             {/* کالم ۹ و ۱۰ */}
@@ -190,13 +215,13 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۹۔ وکیلِ دولہا معہ ولدیت و سکونت:
               </strong>
-              {record.groom?.vakilName ? (
+              {record.groom?.hasVakil !== false && record.groom?.vakilName ? (
                 <div>
-                  {record.groom.vakilName} ولد {record.groom.vakilFatherName || '-'} (شناختی کارڈ: <span className="font-num">{record.groom.vakilCnic || '-'}</span>)
+                  <strong>{record.groom.vakilName}</strong> ولد {record.groom.vakilFatherName || '-'} (شناختی کارڈ: <span className="font-num">{record.groom.vakilCnic || '-'}</span>)
                   <div style={{ fontSize: '0.78rem', color: '#4b5563' }}>سکونت: {record.groom.vakilAddress || '-'}</div>
                 </div>
               ) : (
-                <div style={{ color: '#9ca3af' }}>دولہا بنفسِ نفیس مجلس میں حاضر تھا</div>
+                <div style={{ color: '#15803d', fontWeight: 600 }}>دولہا خود بنفسِ نفیس مجلس میں حاضر تھا اور خود ایجاب و قبول کیا۔</div>
               )}
             </div>
 
@@ -204,7 +229,11 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۱۰۔ گواہان تقرری وکیلِ دولہا:
               </strong>
-              <div style={{ fontSize: '0.8rem' }}>{record.groom?.vakilWitnesses || 'دولہا خود حاضر تھا، وکیل کی ضرورت نہ تھی۔'}</div>
+              {record.groom?.hasVakil !== false && record.groom?.vakilName ? (
+                <div style={{ fontSize: '0.8rem' }}>{record.groom?.vakilWitnesses || '-'}</div>
+              ) : (
+                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>دولہا خود حاضر تھا، وکیل و گواہان کی ضرورت نہ تھی۔</div>
+              )}
             </div>
 
             {/* کالم ۱۱: شرعی گواہان (فل چوڑائی) */}
@@ -239,7 +268,7 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
                 ۱۳۔ کل رقم حق مہر:
               </strong>
               <div>
-                <strong className="font-num" style={{ color: '#064e3b' }}>{record.mehr?.totalAmount ? `${Number(record.mehr.totalAmount).toLocaleString()} روپے` : '-'}</strong>
+                <strong className="font-num" style={{ color: '#064e3b' }}>{formatMoneyOrText(record.mehr?.totalAmount)}</strong>
                 {record.mehr?.totalAmountWords && <span style={{ marginRight: '6px', fontSize: '0.8rem' }}>({record.mehr.totalAmountWords})</span>}
               </div>
             </div>
@@ -249,7 +278,7 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
                 ۱۴۔ مہر معجل و مؤجل:
               </strong>
               <div>
-                معجل (نقد): <span className="font-num">{record.mehr?.muajjal ? `${Number(record.mehr.muajjal).toLocaleString()} روپے` : '0'}</span> | مؤجل: <span className="font-num">{record.mehr?.muwajjal ? `${Number(record.mehr.muwajjal).toLocaleString()} روپے` : '0'}</span>
+                معجل (نقد): <span className="font-num" style={{ fontWeight: 600 }}>{formatMoneyOrText(record.mehr?.muajjal)}</span> | مؤجل: <span className="font-num" style={{ fontWeight: 600 }}>{formatMoneyOrText(record.mehr?.muwajjal)}</span>
               </div>
             </div>
 
@@ -257,7 +286,7 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
                 ۱۵۔ موقع پر ادا شدہ مہر:
               </strong>
-              <div>{record.mehr?.paidAtNikkah || (record.mehr?.muajjal ? `${Number(record.mehr.muajjal).toLocaleString()} روپے ادا شدہ` : 'موقع پر ادا شدہ')}</div>
+              <div>{record.mehr?.paidAtNikkah || (record.mehr?.muajjal ? `${formatMoneyOrText(record.mehr.muajjal)} ادا شدہ` : 'موقع پر ادا شدہ')}</div>
             </div>
 
             {/* کالم ۱۶، ۱۷، ۱۸، ۱۹ */}
@@ -309,9 +338,14 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
             {/* کالم ۲۳ و ۲۴ */}
             <div className="cert-column-box" style={{ border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', background: '#ffffff' }}>
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
-                ۲۳۔ نکاح پڑھانے والے (نکاح خواں) کے کوائف:
+                ۲۳۔ کوائف نکاح خواں و نکاح رجسٹرار:
               </strong>
-              <div>{officiantDetails}</div>
+              <div style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                <strong style={{ color: '#064e3b' }}>نکاح خواں:</strong> {officiantDetails}
+              </div>
+              <div style={{ fontSize: '0.8rem', borderTop: '1px dashed #cbd5e1', paddingTop: '4px' }}>
+                <strong style={{ color: '#b45309' }}>نکاح رجسٹرار:</strong> {registrarDetails}
+              </div>
             </div>
 
             <div className="cert-column-box" style={{ border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', background: '#ffffff' }}>
@@ -319,7 +353,7 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
                 ۲۴۔ فیس رجسٹریشن و قسم نکاح نامہ:
               </strong>
               <div>
-                فیس ادا شدہ: <span className="font-num">{record.fee?.receivedAmount || record.fee?.agreedAmount || '5000'}</span> روپے 
+                فیس: <span className="font-num" style={{ fontWeight: 700, color: '#064e3b' }}>{formatMoneyOrText(record.fee?.agreedAmount || record.fee?.receivedAmount || 'حسب معمول')}</span>
                 <span className="badge badge-green" style={{ marginRight: '8px', fontSize: '0.72rem' }}>
                   {record.registrationType === 'computerized' ? 'کمپیوٹرائزڈ' : 'دستی'}
                 </span>
@@ -327,57 +361,123 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
             </div>
 
             {/* ============================================================ */}
-            {/* کالم ۲۵: دستخط، انگوٹھا جات و مہر رجسٹرار                       */}
+            {/* کالم ۲۵: دستخط، انگوٹھا جات و مہر رجسٹرار (۱۰ الگ الگ خانے)       */}
             {/* ============================================================ */}
-            <div className="cert-column-box" style={{ gridColumn: 'span 2', border: '1.5px solid #064e3b', padding: '12px', borderRadius: '6px', background: '#f8fafc', marginTop: '4px' }}>
+            <div className="cert-column-box" style={{ gridColumn: 'span 2', border: '1.5px solid #064e3b', padding: '10px 12px', borderRadius: '6px', background: '#f8fafc', marginTop: '4px' }}>
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '8px', textAlign: 'center', fontSize: '0.95rem' }}>
                 ۲۵۔ دستخط و انگوٹھا جات فریقین، وکلاء، گواہان و مہر نکاح رجسٹرار
               </strong>
               
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', textAlign: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', textAlign: 'center' }}>
                 
-                {/* دستخط دولہا */}
-                <div style={{ border: '1px dashed #94a3b8', padding: '8px 4px', borderRadius: '4px', background: '#ffffff', minHeight: '65px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#064e3b', fontWeight: 700 }}>دستخط دولہا / وکیل</div>
-                  {record.columnSignatures?.groomSignatureImg ? (
-                    <img src={record.columnSignatures.groomSignatureImg} alt="Groom Sign" style={{ maxHeight: '40px', objectFit: 'contain' }} />
+                {/* ۱۔ دستخط دولہا */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط دولہا</div>
+                  {signs.groomSignatureImg ? (
+                    <img src={signs.groomSignatureImg} alt="Groom Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
                   ) : (
-                    <div style={{ height: '35px' }} />
+                    <div style={{ height: '30px' }} />
                   )}
-                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.72rem', color: '#64748b' }}>({record.groom?.name})</div>
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.groom?.name})</div>
                 </div>
 
-                {/* دستخط دلہن */}
-                <div style={{ border: '1px dashed #94a3b8', padding: '8px 4px', borderRadius: '4px', background: '#ffffff', minHeight: '65px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#b45309', fontWeight: 700 }}>دستخط دلہن / وکیل</div>
-                  {record.columnSignatures?.brideSignatureImg ? (
-                    <img src={record.columnSignatures.brideSignatureImg} alt="Bride Sign" style={{ maxHeight: '40px', objectFit: 'contain' }} />
+                {/* ۲۔ دستخط وکیل دولہا */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط وکیل دولہا</div>
+                  {signs.groomVakilSignatureImg ? (
+                    <img src={signs.groomVakilSignatureImg} alt="Groom Vakil Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
                   ) : (
-                    <div style={{ height: '35px' }} />
+                    <div style={{ height: '30px' }} />
                   )}
-                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.72rem', color: '#64748b' }}>({record.bride?.name})</div>
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.groom?.vakilName || 'وکیل دولہا'})</div>
                 </div>
 
-                {/* دستخط گواہان */}
-                <div style={{ border: '1px dashed #94a3b8', padding: '8px 4px', borderRadius: '4px', background: '#ffffff', minHeight: '65px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#064e3b', fontWeight: 700 }}>دستخط شرعی گواہان</div>
-                  {record.columnSignatures?.witnessesSignatureImg ? (
-                    <img src={record.columnSignatures.witnessesSignatureImg} alt="Witnesses Sign" style={{ maxHeight: '40px', objectFit: 'contain' }} />
+                {/* ۳۔ دستخط دلہن */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700 }}>دستخط دلہن</div>
+                  {signs.brideSignatureImg ? (
+                    <img src={signs.brideSignatureImg} alt="Bride Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
                   ) : (
-                    <div style={{ height: '35px' }} />
+                    <div style={{ height: '30px' }} />
                   )}
-                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.72rem', color: '#64748b' }}>(گواہانِ نکاح)</div>
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.bride?.name})</div>
                 </div>
 
-                {/* مہر و دستخط رجسٹرار */}
-                <div style={{ border: '1px dashed #94a3b8', padding: '8px 4px', borderRadius: '4px', background: '#ffffff', minHeight: '65px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#064e3b', fontWeight: 700 }}>مہر و دستخط رجسٹرار</div>
-                  {record.columnSignatures?.registrarSealImg ? (
-                    <img src={record.columnSignatures.registrarSealImg} alt="Seal Sign" style={{ maxHeight: '40px', objectFit: 'contain' }} />
+                {/* ۴۔ دستخط وکیل دلہن */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700 }}>دستخط وکیل دلہن</div>
+                  {signs.brideVakilSignatureImg ? (
+                    <img src={signs.brideVakilSignatureImg} alt="Bride Vakil Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
                   ) : (
-                    <div style={{ height: '35px' }} />
+                    <div style={{ height: '30px' }} />
                   )}
-                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.72rem', color: '#64748b' }}>(مہر و دستخط رجسٹرار)</div>
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.bride?.vakilName || 'وکیل دلہن'})</div>
+                </div>
+
+                {/* ۵۔ دستخط شرعی گواہ اول */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط شرعی گواہ ۱</div>
+                  {signs.shariWitness1SignatureImg || signs.witnessesSignatureImg ? (
+                    <img src={signs.shariWitness1SignatureImg || signs.witnessesSignatureImg} alt="Shari Witness 1" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.witnessGroom1?.name || 'گواہ اول'})</div>
+                </div>
+
+                {/* ۶۔ دستخط شرعی گواہ دوم */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط شرعی گواہ ۲</div>
+                  {signs.shariWitness2SignatureImg ? (
+                    <img src={signs.shariWitness2SignatureImg} alt="Shari Witness 2" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.witnessBride1?.name || record.witnessGroom2?.name || 'گواہ دوم'})</div>
+                </div>
+
+                {/* ۷۔ دستخط گواہ شادی اول */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط گواہ شادی ۱</div>
+                  {signs.marriageWitness1SignatureImg ? (
+                    <img src={signs.marriageWitness1SignatureImg} alt="Marriage Witness 1" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>(گواہ شادی ۱)</div>
+                </div>
+
+                {/* ۸۔ دستخط گواہ شادی دوم */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط گواہ شادی ۲</div>
+                  {signs.marriageWitness2SignatureImg ? (
+                    <img src={signs.marriageWitness2SignatureImg} alt="Marriage Witness 2" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>(گواہ شادی ۲)</div>
+                </div>
+
+                {/* ۹۔ دستخط نکاح خواں */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>دستخط نکاح خواں</div>
+                  {signs.nikkahKhawanSignatureImg ? (
+                    <img src={signs.nikkahKhawanSignatureImg} alt="Nikkah Khawan Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({officiantName})</div>
+                </div>
+
+                {/* ۱۰۔ مہر و دستخط رجسٹرار */}
+                <div style={{ border: '1px dashed #94a3b8', padding: '6px 3px', borderRadius: '4px', background: '#ffffff', minHeight: '62px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#064e3b', fontWeight: 700 }}>مہر و دستخط رجسٹرار</div>
+                  {signs.registrarSealImg ? (
+                    <img src={signs.registrarSealImg} alt="Seal Sign" style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                  ) : (
+                    <div style={{ height: '30px' }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', fontSize: '0.68rem', color: '#64748b' }}>({record.registrar?.name || profile?.name || 'رجسٹرار'})</div>
                 </div>
 
               </div>

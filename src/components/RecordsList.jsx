@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatPKDate } from '../utils/dateUtils';
 import { storageService } from '../utils/storageService';
+import { authService } from '../utils/authService';
 
 export default function RecordsList({ 
   records, 
@@ -60,8 +61,10 @@ export default function RecordsList({
 
     // فلٹر ٹائپ
     let matchFilter = true;
-    const agreed = parseInt(r.fee?.agreedAmount || '0', 10);
-    const received = parseInt(r.fee?.receivedAmount || '0', 10);
+    const isNumAgreed = /^\d+$/.test(String(r.fee?.agreedAmount || '').trim());
+    const agreed = isNumAgreed ? parseInt(r.fee.agreedAmount, 10) : 0;
+    const isNumRecv = /^\d+$/.test(String(r.fee?.receivedAmount || '').trim());
+    const received = isNumRecv ? parseInt(r.fee.receivedAmount, 10) : 0;
     const remaining = Math.max(0, agreed - received);
 
     if (filterType === 'unpaid') {
@@ -140,7 +143,12 @@ export default function RecordsList({
           onClick={() => { setFilterType('unpaid'); }}
         >
           <Coins size={14} />
-          <span>بقایا فیس والے ({records.filter(r => (parseInt(r.fee?.agreedAmount || '0', 10) - parseInt(r.fee?.receivedAmount || '0', 10)) > 0).length})</span>
+          <span>بقایا فیس والے ({records.filter(r => {
+            const isNum = /^\d+$/.test(String(r.fee?.agreedAmount || '').trim());
+            const a = isNum ? parseInt(r.fee.agreedAmount, 10) : 0;
+            const rec = parseInt(r.fee?.receivedAmount || '0', 10) || 0;
+            return (a - rec) > 0;
+          }).length})</span>
         </button>
 
         <button 
@@ -224,8 +232,10 @@ export default function RecordsList({
             </thead>
             <tbody>
               {filteredRecords.map((r) => {
-                const agreed = parseInt(r.fee?.agreedAmount || '0', 10);
-                const received = parseInt(r.fee?.receivedAmount || '0', 10);
+                const isNumAgreed = /^\d+$/.test(String(r.fee?.agreedAmount || '').trim());
+                const agreed = isNumAgreed ? parseInt(r.fee.agreedAmount, 10) : 0;
+                const isNumRecv = /^\d+$/.test(String(r.fee?.receivedAmount || '').trim());
+                const received = isNumRecv ? parseInt(r.fee.receivedAmount, 10) : 0;
                 const remaining = Math.max(0, agreed - received);
 
                 return (
@@ -274,20 +284,33 @@ export default function RecordsList({
 
                     {/* فیس */}
                     <td>
-                      <div className="font-num" style={{ fontSize: '0.84rem' }}>
-                        طے: {agreed ? agreed.toLocaleString() : '0'} | وصول: <span style={{ color: '#059669', fontWeight: 700 }}>{received ? received.toLocaleString() : '0'}</span>
-                      </div>
-                      <div>
-                        {remaining > 0 ? (
-                          <span className="badge badge-red font-num" style={{ fontSize: '0.72rem' }}>
-                            بقایا: {remaining.toLocaleString()} روپے
+                      {isNumAgreed ? (
+                        <>
+                          <div className="font-num" style={{ fontSize: '0.84rem' }}>
+                            طے: {agreed.toLocaleString()} | وصول: <span style={{ color: '#059669', fontWeight: 700 }}>{received ? received.toLocaleString() : '0'}</span>
+                          </div>
+                          <div>
+                            {remaining > 0 ? (
+                              <span className="badge badge-red font-num" style={{ fontSize: '0.72rem' }}>
+                                بقایا: {remaining.toLocaleString()} روپے
+                              </span>
+                            ) : (
+                              <span className="badge badge-green font-num" style={{ fontSize: '0.72rem' }}>
+                                ✓ مکمل ادا
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--primary-800)' }}>
+                            {r.fee?.agreedAmount || 'حسب معمول'}
+                          </div>
+                          <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>
+                            ✓ باقاعدہ فیس
                           </span>
-                        ) : (
-                          <span className="badge badge-green font-num" style={{ fontSize: '0.72rem' }}>
-                            ✓ مکمل ادا
-                          </span>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </td>
 
                     {/* ترسیل و وصولی */}

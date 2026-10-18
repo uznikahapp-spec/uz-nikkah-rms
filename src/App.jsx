@@ -12,6 +12,41 @@ import { firebaseService } from './utils/firebaseService';
 import { authService } from './utils/authService';
 import { LayoutDashboard, FilePlus2, BookOpen, Settings, Cloud, CloudOff } from 'lucide-react';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Nikkah App Caught Error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px 20px', textAlign: 'center', background: '#fff', borderRadius: '12px', margin: '30px auto', maxWidth: '600px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ color: '#dc2626', marginBottom: '12px' }}>سکرین لوڈ کرنے میں عارضی مسئلہ پیش آیا</h2>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '18px' }}>
+            {this.state.error?.message || 'کوئی نامعلوم تکنیکی خرابی پیش آئی ہے۔'}
+          </p>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+          >
+            ایپلیکیشن دوبارہ لوڈ کریں
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
   const [records, setRecords] = useState([]);
@@ -184,44 +219,46 @@ export default function App() {
 
       {/* مرکزی مواد */}
       <main>
-        {currentTab === 'dashboard' && (
-          <Dashboard 
-            records={records}
-            onNewEntry={() => {
-              setEditingRecord(null);
-              setCurrentTab('new_form');
-            }}
-            onViewRecord={(r) => setSelectedRecordForView(r)}
-            onPrintRecord={(r) => setSelectedRecordForPrint(r)}
-            onViewAllRecords={() => setCurrentTab('records')}
-          />
-        )}
+        <ErrorBoundary>
+          {currentTab === 'dashboard' && (
+            <Dashboard 
+              records={records}
+              onNewEntry={() => {
+                setEditingRecord(null);
+                setCurrentTab('new_form');
+              }}
+              onViewRecord={(r) => setSelectedRecordForView(r)}
+              onPrintRecord={(r) => setSelectedRecordForPrint(r)}
+              onViewAllRecords={() => setCurrentTab('records')}
+            />
+          )}
 
-        {currentTab === 'new_form' && (
-          <NewNikkahForm 
-            onSave={handleSaveRecord}
-            onCancel={() => {
-              setEditingRecord(null);
-              setCurrentTab(records.length > 0 ? 'records' : 'dashboard');
-            }}
-            initialData={editingRecord}
-            profile={profile}
-          />
-        )}
+          {currentTab === 'new_form' && (
+            <NewNikkahForm 
+              onSave={handleSaveRecord}
+              onCancel={() => {
+                setEditingRecord(null);
+                setCurrentTab(records.length > 0 ? 'records' : 'dashboard');
+              }}
+              initialData={editingRecord}
+              profile={profile}
+            />
+          )}
 
-        {currentTab === 'records' && (
-          <RecordsList 
-            records={records}
-            onNewEntry={() => {
-              setEditingRecord(null);
-              setCurrentTab('new_form');
-            }}
-            onViewRecord={(r) => setSelectedRecordForView(r)}
-            onEditRecord={handleEditRecord}
-            onPrintRecord={(r) => setSelectedRecordForPrint(r)}
-            onDeleteRecord={handleDeleteRecord}
-          />
-        )}
+          {currentTab === 'records' && (
+            <RecordsList 
+              records={records}
+              onNewEntry={() => {
+                setEditingRecord(null);
+                setCurrentTab('new_form');
+              }}
+              onViewRecord={(r) => setSelectedRecordForView(r)}
+              onEditRecord={handleEditRecord}
+              onPrintRecord={(r) => setSelectedRecordForPrint(r)}
+              onDeleteRecord={handleDeleteRecord}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* موڈلز (Popups) */}

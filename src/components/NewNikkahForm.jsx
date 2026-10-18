@@ -15,23 +15,31 @@ import {
   Calendar, 
   Clock, 
   MapPin, 
-  X,
-  Phone,
-  MoonStar,
-  Receipt,
-  CheckSquare,
-  SkipForward,
-  Image as ImageIcon,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
-  ListOrdered,
-  Eye,
-  Building,
-  UserCheck
+  X, 
+  Phone, 
+  MoonStar, 
+  Receipt, 
+  CheckSquare, 
+  Image as ImageIcon, 
+  Layers, 
+  ListOrdered, 
+  Eye, 
+  Building, 
+  UserCheck,
+  ShieldCheck,
+  FolderArchive
 } from 'lucide-react';
-import { compressImage, formatBytes } from '../utils/imageCompressor';
+import { compressAndMakeTransparent, compressImage } from '../utils/imageCompressor';
 import { formatCNIC, formatPhone, getHijriDate } from '../utils/dateUtils';
+
+// پانچ منطقی، یکساں اور جامع مراحل (Uniform 5-Step Process)
+const FORM_STEPS = [
+  { id: 1, title: 'مقام و رجسٹریشن', sub: 'خانہ ۱، ۲۳، ۲۴' },
+  { id: 2, title: 'دولہا کے کوائف', sub: 'خانہ ۲، ۳، ۹، ۱۰ و گواہان' },
+  { id: 3, title: 'دلہن کے کوائف', sub: 'خانہ ۴، ۵، ۶، ۷، ۸ و گواہ' },
+  { id: 4, title: 'حق مہر و شرائط', sub: 'خانہ ۱۲ تا ۲۲' },
+  { id: 5, title: 'سکیننگ، دستخط و مہر جات', sub: 'CNIC کارڈز و تمام ۱۰ دستخط' }
+];
 
 export default function NewNikkahForm({ 
   onSave, 
@@ -39,12 +47,42 @@ export default function NewNikkahForm({
   initialData = null,
   profile
 }) {
-  // بنیادی ابتدائی اسٹیٹ
+  // بنیادی ابتدائی ڈیٹا
   const [formData, setFormData] = useState(() => {
     if (initialData) {
       return {
         ...initialData,
-        hijriDate: initialData.hijriDate || getHijriDate(initialData.nikkahDate)
+        hijriDate: initialData.hijriDate || getHijriDate(initialData.nikkahDate),
+        groom: {
+          hasVakil: initialData.groom?.hasVakil ?? Boolean(initialData.groom?.vakilName),
+          dob: initialData.groom?.dob || '',
+          ...initialData.groom
+        },
+        bride: {
+          hasVakil: initialData.bride?.hasVakil ?? Boolean(initialData.bride?.vakilName),
+          dob: initialData.bride?.dob || '',
+          ...initialData.bride
+        },
+        registrar: {
+          name: profile?.name || 'مولانا قاری محمد اسماعیل صدیقی',
+          fatherName: profile?.fatherName || '',
+          licenseNo: profile?.licenseNo || 'NK-LHR-2024/89',
+          unionCouncil: profile?.unionCouncil || '',
+          district: profile?.district || 'لاہور',
+          officeAddress: profile?.officeAddress || '',
+          phone: profile?.phone || '',
+          ...(initialData.registrar || {})
+        },
+        columnSignatures: initialData.columnSignatures || {},
+        vaultDocuments: {
+          groomCnicFront: initialData.vaultDocuments?.groomCnicFront || initialData.groom?.cnicImageFront || null,
+          groomCnicBack: initialData.vaultDocuments?.groomCnicBack || initialData.groom?.cnicImageBack || null,
+          brideCnicFront: initialData.vaultDocuments?.brideCnicFront || initialData.bride?.cnicImageFront || null,
+          brideCnicBack: initialData.vaultDocuments?.brideCnicBack || initialData.bride?.cnicImageBack || null,
+          computerizedNikkahImg: initialData.vaultDocuments?.computerizedNikkahImg || null,
+          manualNikkahImgs: initialData.vaultDocuments?.manualNikkahImgs || [],
+          ...(initialData.vaultDocuments || {})
+        }
       };
     }
     return {
@@ -58,8 +96,8 @@ export default function NewNikkahForm({
       unionCouncil: profile?.unionCouncil || '',
       district: profile?.district || 'لاہور',
 
-      // نکاح خواں کی قسم
-      officiantType: 'self', // 'self' یا 'guest'
+      // نکاح خواں
+      officiantType: 'self',
       guestOfficiant: {
         name: '',
         fatherName: '',
@@ -67,18 +105,31 @@ export default function NewNikkahForm({
         phone: ''
       },
 
-      // قسم نکاح نامہ
-      registrationType: 'computerized', // 'computerized' یا 'manual_only'
+      // نکاح رجسٹرار
+      registrar: {
+        name: profile?.name || 'مولانا قاری محمد اسماعیل صدیقی',
+        fatherName: profile?.fatherName || '',
+        licenseNo: profile?.licenseNo || 'NK-LHR-2024/89',
+        unionCouncil: profile?.unionCouncil || '',
+        district: profile?.district || 'لاہور',
+        officeAddress: profile?.officeAddress || '',
+        phone: profile?.phone || ''
+      },
 
-      // دولہا
+      // قسم نکاح نامہ
+      registrationType: 'computerized',
+
+      // دولہا کے کوائف
       groom: {
         name: '',
         fatherName: '',
         cnic: '',
         age: '',
+        dob: '',
         maritalStatus: 'کنوارا',
         phone: '',
         address: '',
+        hasVakil: false,
         vakilName: '',
         vakilFatherName: '',
         vakilCnic: '',
@@ -87,15 +138,17 @@ export default function NewNikkahForm({
         vakilWitnesses: ''
       },
 
-      // دلہن
+      // دلہن کے کوائف
       bride: {
         name: '',
         fatherName: '',
         cnic: '',
         age: '',
+        dob: '',
         maritalStatus: 'کنواری',
         phone: '',
         address: '',
+        hasVakil: false,
         vakilName: '',
         vakilFatherName: '',
         vakilCnic: '',
@@ -104,11 +157,35 @@ export default function NewNikkahForm({
         vakilWitnesses: ''
       },
 
-      // گواہان
-      witnessGroom1: { name: '', fatherName: '', cnic: '', phone: '', address: '' },
-      witnessGroom2: { name: '', fatherName: '', cnic: '', phone: '', address: '' },
-      witnessBride1: { name: '', fatherName: '', cnic: '', phone: '', address: '' },
-      witnessBride2: { name: '', fatherName: '', cnic: '', phone: '', address: '' },
+      // شرعی گواہان
+      witnessGroom1: {
+        name: '',
+        fatherName: '',
+        cnic: '',
+        phone: '',
+        address: ''
+      },
+      witnessGroom2: {
+        name: '',
+        fatherName: '',
+        cnic: '',
+        phone: '',
+        address: ''
+      },
+      witnessBride1: {
+        name: '',
+        fatherName: '',
+        cnic: '',
+        phone: '',
+        address: ''
+      },
+      witnessBride2: {
+        name: '',
+        fatherName: '',
+        cnic: '',
+        phone: '',
+        address: ''
+      },
 
       // مہر اور شرائط
       mehr: {
@@ -128,7 +205,7 @@ export default function NewNikkahForm({
 
       // فیس
       fee: {
-        agreedAmount: profile?.feeDefault || '5000',
+        agreedAmount: 'حسب معمول',
         receivedAmount: ''
       },
 
@@ -149,8 +226,8 @@ export default function NewNikkahForm({
 
       // کالمز کی تصاویر اور دستخط
       columnSignatures: {},
-      
-      // دستاویزات والٹ (شناختی کارڈز اور کمپیوٹرائزڈ نکاح نامہ)
+
+      // والٹ دستاویزات
       vaultDocuments: {
         groomCnicFront: null,
         groomCnicBack: null,
@@ -165,10 +242,8 @@ export default function NewNikkahForm({
     };
   });
 
-  // ویو موڈ: 'boxes' (باکس بائی باکس موڈ) یا 'full_form' (تمام خانے ایک ساتھ)
-  const [viewMode, setViewMode] = useState('boxes');
-  const [currentBox, setCurrentBox] = useState(1);
-  const [showNavigator, setShowNavigator] = useState(false);
+  const [activeStep, setActiveStep] = useState(1);
+  const [viewMode, setViewMode] = useState('wizard'); // 'wizard' یا 'full_review'
   const [compressing, setCompressing] = useState(false);
   const [compressionInfo, setCompressionInfo] = useState('');
 
@@ -183,7 +258,7 @@ export default function NewNikkahForm({
     }));
   };
 
-  // سیدھا ڈیٹا اپڈیٹ کرنے کا ہینڈلر
+  // فیلڈ اپڈیٹ
   const updateField = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -191,56 +266,53 @@ export default function NewNikkahForm({
     }));
   };
 
-  // کالم کو سکپ یا ان سکپ کرنا
-  const toggleSkipColumn = (colNumber) => {
-    setFormData((prev) => {
-      const skipped = new Set(prev.skippedColumns || []);
-      if (skipped.has(colNumber)) {
-        skipped.delete(colNumber);
-      } else {
-        skipped.add(colNumber);
-      }
-      return {
-        ...prev,
-        skippedColumns: Array.from(skipped)
-      };
-    });
+  // تاریخ پیدائش سے عمر سالوں میں حساب کرنے کا فنکشن
+  const calculateAgeFromDob = (dobString) => {
+    if (!dobString) return '';
+    const birth = new Date(dobString);
+    if (isNaN(birth.getTime())) return '';
+    const today = new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      years--;
+    }
+    return years >= 0 ? years.toString() : '';
   };
 
-  const isSkipped = (colNum) => (formData.skippedColumns || []).includes(colNum);
-
-  // کسی کالم کے ساتھ دستخط یا تصویر اٹیچ کرنا
-  const handleAttachColumnImage = async (key, file) => {
+  // دستخط اور مہر اپلوڈ (وائٹ بیک گراؤنڈ ہٹا کر شفاف PNG بنانا)
+  const handleSignatureUpload = async (key, file) => {
     if (!file) return;
     try {
       setCompressing(true);
-      setCompressionInfo('تصویر کا سائز کمپریس ہو رہا ہے...');
-      const compressedDataUrl = await compressImage(file, 1200, 0.75);
+      setCompressionInfo('دستخط شفاف (Transparent) ہو رہے ہیں...');
+      // makeTransparent = true تاکہ الفاظ کے اوپر بھی صاف نظر آئے
+      const transparentDataUrl = await compressAndMakeTransparent(file, true, 900);
 
       setFormData((prev) => ({
         ...prev,
         columnSignatures: {
           ...prev.columnSignatures,
-          [key]: compressedDataUrl
+          [key]: transparentDataUrl
         }
       }));
-      setCompressionInfo('تصویر کامیابی سے اٹیچ ہو گئی!');
+      setCompressionInfo('✓ دستخط کامیابی سے محفوظ ہو گئے!');
       setTimeout(() => setCompressionInfo(''), 2500);
     } catch (err) {
       console.error(err);
-      alert('تصویر اپلوڈ کرنے میں مسئلہ پیش آیا۔');
+      alert('دستخط اپلوڈ کرنے میں مسئلہ پیش آیا۔');
     } finally {
       setCompressing(false);
     }
   };
 
-  // کسی والٹ دستاویز کی تصویر اپلوڈ کرنا (CNIC, NRC)
-  const handleVaultDocUpload = async (docKey, file) => {
+  // شناختی کارڈز اپلوڈ
+  const handleCnicUpload = async (docKey, file) => {
     if (!file) return;
     try {
       setCompressing(true);
-      setCompressionInfo('دستاویز کمپریس ہو رہی ہے...');
-      const compressed = await compressImage(file, 1200, 0.75);
+      setCompressionInfo('شناختی کارڈ کمپریس ہو رہا ہے...');
+      const compressed = await compressImage(file, 1200);
 
       setFormData((prev) => ({
         ...prev,
@@ -249,15 +321,102 @@ export default function NewNikkahForm({
           [docKey]: compressed
         }
       }));
-      setCompressionInfo('دستاویز والٹ میں محفوظ ہو گئی!');
+      setCompressionInfo('✓ شناختی کارڈ والٹ میں محفوظ ہو گیا!');
       setTimeout(() => setCompressionInfo(''), 2500);
     } catch (err) {
       console.error(err);
-      alert('دستاویز اپلوڈ کرنے میں مسئلہ پیش آیا۔');
+      alert('شناختی کارڈ اپلوڈ کرنے میں مسئلہ پیش آیا۔');
     } finally {
       setCompressing(false);
     }
   };
+
+  // دستخط ڈیلیٹ کرنا
+  const handleRemoveSignature = (key) => {
+    setFormData((prev) => {
+      const updated = { ...prev.columnSignatures };
+      delete updated[key];
+      return {
+        ...prev,
+        columnSignatures: updated
+      };
+    });
+  };
+
+  // شناختی کارڈ ڈیلیٹ کرنا
+  const handleRemoveCnic = (key) => {
+    setFormData((prev) => ({
+      ...prev,
+      vaultDocuments: {
+        ...prev.vaultDocuments,
+        [key]: null
+      }
+    }));
+  };
+
+  // خانہ نمبر ۲۵ کے تمام ۱۰ باضابطہ دستخطی خانے
+  const SIGNATURE_SLOTS = [
+    {
+      key: 'groomSignatureImg',
+      title: '۱۔ دستخط دولہا',
+      subtitle: formData.groom?.name ? `(${formData.groom.name})` : '(دولہا خود)',
+      badge: 'فریق اول'
+    },
+    {
+      key: 'groomVakilSignatureImg',
+      title: '۲۔ دستخط وکیلِ دولہا',
+      subtitle: formData.groom?.hasVakil && formData.groom?.vakilName ? `(${formData.groom.vakilName})` : '(اگر مقرر ہو)',
+      badge: 'وکیل دولہا'
+    },
+    {
+      key: 'brideSignatureImg',
+      title: '۳۔ دستخط دلہن',
+      subtitle: formData.bride?.name ? `(${formData.bride.name})` : '(دلہن خود)',
+      badge: 'فریق دوم'
+    },
+    {
+      key: 'brideVakilSignatureImg',
+      title: '۴۔ دستخط وکیلِ دلہن',
+      subtitle: formData.bride?.hasVakil && formData.bride?.vakilName ? `(${formData.bride.vakilName})` : '(اگر مقرر ہو)',
+      badge: 'وکیل دلہن'
+    },
+    {
+      key: 'shariWitness1SignatureImg',
+      title: '۵۔ دستخط شرعی گواہ اول',
+      subtitle: formData.witnessGroom1?.name ? `(${formData.witnessGroom1.name})` : '(شرعی گواہ اول)',
+      badge: 'گواہ ۱'
+    },
+    {
+      key: 'shariWitness2SignatureImg',
+      title: '۶۔ دستخط شرعی گواہ دوم',
+      subtitle: formData.witnessBride1?.name || formData.witnessGroom2?.name ? `(${formData.witnessBride1?.name || formData.witnessGroom2?.name})` : '(شرعی گواہ دوم)',
+      badge: 'گواہ ۲'
+    },
+    {
+      key: 'marriageWitness1SignatureImg',
+      title: '۷۔ دستخط گواہِ شادی اول',
+      subtitle: '(شادی / مجلس عقد گواہ ۱)',
+      badge: 'شادی گواہ ۱'
+    },
+    {
+      key: 'marriageWitness2SignatureImg',
+      title: '۸۔ دستخط گواہِ شادی دوم',
+      subtitle: '(شادی / مجلس عقد گواہ ۲)',
+      badge: 'شادی گواہ ۲'
+    },
+    {
+      key: 'nikkahKhawanSignatureImg',
+      title: '۹۔ دستخط نکاح خواں',
+      subtitle: formData.officiantType === 'guest' && formData.guestOfficiant?.name ? `(${formData.guestOfficiant.name})` : `(${profile?.name || 'نکاح خواں'})`,
+      badge: 'نکاح خواں'
+    },
+    {
+      key: 'registrarSealImg',
+      title: '۱۰۔ مہر و دستخط رجسٹرار',
+      subtitle: formData.registrar?.name || profile?.name ? `(${formData.registrar?.name || profile?.name})` : '(نکاح رجسٹرار)',
+      badge: 'مہر رجسٹرار'
+    }
+  ];
 
   // فارم سبمٹ ہینڈلر
   const handleSubmit = (e) => {
@@ -265,78 +424,72 @@ export default function NewNikkahForm({
 
     if (!formData.serialNo) {
       alert('برائے مہربانی رجسٹریشن یا فارم نمبر ضرور درج کریں۔');
-      setCurrentBox(1);
+      setActiveStep(1);
       return;
     }
 
     if (!formData.groom?.name || !formData.bride?.name) {
       alert('برائے مہربانی دولہا اور دلہن کا نام ضرور درج کریں۔');
-      setCurrentBox(2);
+      setActiveStep(2);
       return;
     }
 
     // فولڈر ٹائٹل خودکار سنواریں
     const folderTitle = `${formData.serialNo} - ${formData.groom.name} و ${formData.bride.name}${formData.officiantType === 'guest' ? ' (مہمان نکاح خواں)' : ''}`;
 
+    const groomData = {
+      ...formData.groom,
+      cnicImageFront: formData.vaultDocuments?.groomCnicFront || formData.groom?.cnicImageFront || null,
+      cnicImageBack: formData.vaultDocuments?.groomCnicBack || formData.groom?.cnicImageBack || null
+    };
+
+    const brideData = {
+      ...formData.bride,
+      cnicImageFront: formData.vaultDocuments?.brideCnicFront || formData.bride?.cnicImageFront || null,
+      cnicImageBack: formData.vaultDocuments?.brideCnicBack || formData.bride?.cnicImageBack || null
+    };
+
     onSave({
       ...formData,
+      groom: groomData,
+      bride: brideData,
       folderTitle
     });
   };
 
-  // ۲۵ سرکاری کالمز کے عنوانات برائے نیویگیٹر
-  const COLUMN_TITLES = [
-    { num: 1, title: 'مقام و علاقہ نکاح' },
-    { num: 2, title: 'کوائف دولہا مع سکونت' },
-    { num: 3, title: 'عمر دولہا' },
-    { num: 4, title: 'کوائف دلہن مع سکونت' },
-    { num: 5, title: 'حیثیت دلہن (کنواری/بیوہ/مطلقہ)' },
-    { num: 6, title: 'عمر دلہن' },
-    { num: 7, title: 'وکیل دلہن' },
-    { num: 8, title: 'گواہان تقرری وکیل دلہن' },
-    { num: 9, title: 'وکیل دولہا' },
-    { num: 10, title: 'گواہان تقرری وکیل دولہا' },
-    { num: 11, title: 'شرعی گواہانِ نکاح' },
-    { num: 12, title: 'تاریخ نکاح (شمسی و ہجری)' },
-    { num: 13, title: 'رقم حق مہر' },
-    { num: 14, title: 'مہر معجل و مؤجل' },
-    { num: 15, title: 'موقع پر ادا شدہ مہر' },
-    { num: 16, title: 'مہر جائیداد / سونا' },
-    { num: 17, title: 'خصوصی شرائط نکاح' },
-    { num: 18, title: 'تفویضِ طلاق' },
-    { num: 19, title: 'پابندی حق طلاق' },
-    { num: 20, title: 'دستاویزات مہر و نان نفقہ' },
-    { num: 21, title: 'پہلے سے موجود بیوی' },
-    { num: 22, title: 'اجازت نامہ ثالثی کونسل' },
-    { num: 23, title: 'کوائف نکاح خواں (ذاتی / مہمان)' },
-    { num: 24, title: 'فیس، وصولی و قسم نکاح نامہ' },
-    { num: 25, title: 'دستخط، انگوٹھا جات و مہر' }
-  ];
-
   return (
-    <div className="card" style={{ maxWidth: '980px', margin: '0 auto', background: 'var(--bg-card)' }}>
-      {/* ہیڈر بار مع موڈ سوئچر */}
-      <div className="card-header-styled" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '16px' }}>
-        <div>
-          <div className="card-title-with-icon">
-            <Sparkles size={24} color="var(--primary-700)" />
-            <span>نکاح رجسٹریشن فارم (سرکاری ۲۵ کالمز باقاعدہ فارمیٹ)</span>
+    <div className="card">
+      {/* ============================================================ */}
+      {/* ہیڈر بار بمع ٹائٹل اور موڈ سوئچر                                */}
+      {/* ============================================================ */}
+      <div className="card-header-styled">
+        <div className="card-title-with-icon">
+          <FolderArchive size={26} color="var(--primary-700)" />
+          <div>
+            <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+              {initialData ? `ترمیم نکاح نامہ: ${formData.serialNo}` : 'نیا نکاح نامہ اندراج (سرکاری ۲۵ خانے)'}
+            </span>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              منظم، یکساں اور فیلڈز کو قطاروں میں سمیٹ کر بنایا گیا جدید انٹرفیس
+            </div>
           </div>
-          <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-            موبائل و کمپیوٹر پر آسانی سے اندراج کریں، خانے سکپ کریں یا دستخط کی تصویر لگائیں
-          </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* باکس موڈ بمقابلہ فل فارم موڈ بٹن */}
-          <button 
-            type="button" 
-            className={`btn ${viewMode === 'boxes' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '7px 14px', fontSize: '0.86rem' }}
-            onClick={() => setViewMode(viewMode === 'boxes' ? 'full_form' : 'boxes')}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* موڈ ٹوگل بٹن */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: '0.82rem', padding: '6px 12px' }}
+            onClick={() => setViewMode(viewMode === 'wizard' ? 'full_review' : 'wizard')}
           >
-            <Layers size={16} />
-            <span>{viewMode === 'boxes' ? 'پورے فارم کا جائزہ' : 'باکس بائی باکس موڈ'}</span>
+            <Layers size={15} />
+            <span>{viewMode === 'wizard' ? 'مکمل جائزہ موڈ' : 'مرحلہ وار موڈ'}</span>
+          </button>
+
+          <button type="button" className="btn btn-primary" onClick={handleSubmit}>
+            <Save size={16} />
+            <span>محفوظ کریں و پرنٹ دیکھیں</span>
           </button>
 
           <button type="button" className="btn-icon" onClick={onCancel} title="منسوخ کریں">
@@ -345,1344 +498,1215 @@ export default function NewNikkahForm({
         </div>
       </div>
 
-      {/* الرٹ بینر اگر کمپریشن چل رہی ہو */}
-      {compressionInfo && (
-        <div style={{ background: 'var(--primary-50)', color: 'var(--primary-900)', padding: '10px 16px', borderRadius: '8px', margin: '16px 20px 0', border: '1px solid var(--primary-300)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Sparkles size={18} />
+      {/* لوڈنگ و کمپریشن بینر */}
+      {compressing && (
+        <div style={{ background: '#ecfdf5', color: '#065f46', padding: '8px 16px', borderRadius: '6px', marginBottom: '14px', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #a7f3d0' }}>
+          <Sparkles size={16} className="animate-spin" />
           <span>{compressionInfo}</span>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* پروگریس اور باکس نیویگیشن بار (صرف باکس موڈ میں) */}
-      {/* ========================================================================= */}
-      {viewMode === 'boxes' && (
-        <div style={{ padding: '16px 20px 0', background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="badge badge-green font-num" style={{ fontSize: '1rem', padding: '4px 10px' }}>
-                خانہ نمبر {currentBox} از ۲۵
-              </span>
-              <strong style={{ fontSize: '1rem', color: 'var(--primary-800)' }}>
-                {COLUMN_TITLES[currentBox - 1]?.title}
-              </strong>
-            </div>
-
-            <button 
-              type="button" 
-              className="btn btn-secondary" 
-              style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-              onClick={() => setShowNavigator(!showNavigator)}
-            >
-              <ListOrdered size={14} />
-              <span>{showNavigator ? 'لسٹ چھپائیں' : 'تمام خانوں کی لسٹ'}</span>
-            </button>
-          </div>
-
-          {/* پروگریس بار */}
-          <div style={{ width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
-            <div 
-              style={{ 
-                width: `${(currentBox / 25) * 100}%`, 
-                height: '100%', 
-                background: 'linear-gradient(90deg, var(--primary-600), var(--gold-500))',
-                transition: 'width 0.3s ease'
-              }} 
-            />
-          </div>
-
-          {/* تمام ۲۵ خانوں کا نیویگیٹر گرڈ (اگر کھلا ہو) */}
-          {showNavigator && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '6px', padding: '10px 0 16px', borderTop: '1px dashed var(--border-color)' }}>
-              {COLUMN_TITLES.map((col) => {
-                const skipped = isSkipped(col.num);
-                const active = currentBox === col.num;
-                return (
-                  <button
-                    key={col.num}
-                    type="button"
-                    onClick={() => {
-                      setCurrentBox(col.num);
-                      setShowNavigator(false);
-                    }}
-                    style={{
-                      padding: '6px 8px',
-                      fontSize: '0.78rem',
-                      textAlign: 'right',
-                      borderRadius: '6px',
-                      border: active ? '2px solid var(--primary-700)' : '1px solid var(--border-color)',
-                      background: active ? 'var(--primary-100)' : skipped ? '#fee2e2' : 'var(--bg-card)',
-                      color: active ? 'var(--primary-900)' : skipped ? '#991b1b' : 'var(--text-main)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span className="font-num" style={{ fontWeight: 700 }}>{col.num}.</span> {col.title}
-                    {skipped && <span style={{ display: 'block', fontSize: '0.7rem', color: '#dc2626' }}>سکپ شدہ</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {/* ============================================================ */}
+      {/* پانچ مرحلہ وار اسٹیپ بار (یکساں نیویگیشن)                        */}
+      {/* ============================================================ */}
+      {viewMode === 'wizard' && (
+        <div className="wizard-stepper" style={{ marginBottom: '20px' }}>
+          {FORM_STEPS.map((step) => {
+            const isActive = activeStep === step.id;
+            const isPassed = activeStep > step.id;
+            return (
+              <div 
+                key={step.id} 
+                className={`step-item ${isActive ? 'active' : ''} ${isPassed ? 'completed' : ''}`}
+                onClick={() => setActiveStep(step.id)}
+              >
+                <div 
+                  className="step-bubble"
+                  style={{
+                    background: isActive ? 'var(--primary-700)' : (isPassed ? '#059669' : 'var(--bg-card)'),
+                    color: isActive || isPassed ? '#ffffff' : 'var(--text-muted)',
+                    borderColor: isActive ? 'var(--primary-700)' : (isPassed ? '#059669' : 'var(--border-color)')
+                  }}
+                >
+                  {isPassed ? '✓' : step.id}
+                </div>
+                <div>
+                  <div style={{ fontWeight: isActive ? 800 : 600, fontSize: '0.88rem', color: isActive ? 'var(--primary-900)' : 'var(--text-main)' }}>
+                    {step.title}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{step.sub}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* مرکزی فارم ایریا                                                         */}
-      {/* ========================================================================= */}
-      <form onSubmit={handleSubmit} style={{ padding: '20px' }}>
-        
-        {/* =================================================== */}
-        {/* باکس بائی باکس رینڈرنگ (ہر کالم ایک باکس کی صورت میں) */}
-        {/* =================================================== */}
-        {viewMode === 'boxes' ? (
-          <div>
-            {/* ہیڈر ایکشن بار برائے کرنٹ باکس: سکپ بٹن اور تصویر بٹن */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: isSkipped(currentBox) ? '#fef2f2' : 'transparent', padding: '8px 12px', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  className={`btn ${isSkipped(currentBox) ? 'btn-danger' : 'btn-secondary'}`}
-                  style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-                  onClick={() => toggleSkipColumn(currentBox)}
-                >
-                  <SkipForward size={15} />
-                  <span>{isSkipped(currentBox) ? 'خانہ سکپ ختم کریں' : 'یہ خانہ ابھی سکپ کریں (Skip)'}</span>
-                </button>
-                {isSkipped(currentBox) && (
-                  <span style={{ color: '#dc2626', fontSize: '0.82rem', fontWeight: 600 }}>
-                    یہ خانہ سکپ لسٹ میں شامل ہے (بعد میں پر کر سکتے ہیں)
-                  </span>
-                )}
-              </div>
-
-              {/* کالم امیج اٹیچمنٹ (دستخط یا تصویر) */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}>
-                  <Camera size={15} />
-                  <span>اس خانے میں تصویر / دستخط لگائیں</span>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        handleAttachColumnImage(`col_${currentBox}`, e.target.files[0]);
-                      }
-                    }} 
-                  />
-                </label>
-              </div>
+      {/* فارم کنٹینر: اینٹر دبانے پر فارم سبمٹ نہ ہو */}
+      <form 
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }}
+      >
+        {/* ============================================================ */}
+        {/* مرحلہ ۱: مقام، تاریخ و رجسٹریشن (خانہ ۱، ۲۳، ۲۴)              */}
+        {/* ============================================================ */}
+        {(viewMode === 'full_review' || activeStep === 1) && (
+          <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
+                ۱۔ مقامِ انعقاد، تاریخ و رجسٹریشن کے کوائف (خانہ ۱، ۲۳، ۲۴)
+              </h3>
+              <span className="badge badge-green">مرحلہ ۱ / ۵</span>
             </div>
 
-            {/* اگر اس خانے کی تصویر اٹیچ ہے تو پری ویو */}
-            {formData.columnSignatures?.[`col_${currentBox}`] && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: 'var(--bg-card-subtle)', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
-                <img 
-                  src={formData.columnSignatures[`col_${currentBox}`]} 
-                  alt={`Col ${currentBox} Attachment`} 
-                  style={{ width: '80px', height: '60px', objectFit: 'contain', border: '1px solid #ccc', borderRadius: '4px', background: '#fff' }} 
+            {/* سطر ۱: رجسٹریشن نمبر، یونین کونسل، وارڈ، ضلع و تحصیل (4 کالمز) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label required">رجسٹریشن / فارم نمبر (خانہ ۱)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="مثال: 145/26" 
+                  value={formData.serialNo}
+                  onChange={(e) => updateField('serialNo', e.target.value)}
+                  required
                 />
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--primary-800)' }}>خانہ نمبر {currentBox} میں تصویر / دستخط اٹیچ ہے</strong>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>پرنٹ نکالتے وقت یہ تصویر اسی متعلقہ خانے میں ظاہر ہوگی۔</div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                  onClick={() => {
-                    const updated = { ...formData.columnSignatures };
-                    delete updated[`col_${currentBox}`];
-                    setFormData((prev) => ({ ...prev, columnSignatures: updated }));
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">یونین کونسل نمبر / نام</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="یونین کونسل نمبر ۱۰۴" 
+                  value={formData.unionCouncil}
+                  onChange={(e) => updateField('unionCouncil', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">وارڈ / دیہہ / قصبہ</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="وارڈ نمبر ۵، سبزہ زار" 
+                  value={formData.wardVillage || ''}
+                  onChange={(e) => updateField('wardVillage', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">تحصیل و ضلع</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="ضلع و تحصیل لاہور" 
+                  value={formData.district}
+                  onChange={(e) => updateField('district', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۲: مقام انعقاد، تاریخ شمسی، تاریخ قمری، وقت (4 کالمز) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label">مقامِ انعقادِ نکاح (خانہ ۱)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="قصرِ نور بینکوئٹ ہال، لاہور" 
+                  value={formData.location}
+                  onChange={(e) => updateField('location', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">تاریخِ نکاح (شمسی - خانہ ۱۲)</label>
+                <input 
+                  type="date" 
+                  className="form-input font-num" 
+                  value={formData.nikkahDate}
+                  onChange={(e) => {
+                    const dateStr = e.target.value;
+                    updateField('nikkahDate', dateStr);
+                    updateField('hijriDate', getHijriDate(dateStr));
                   }}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">قمری / ہجری تاریخ (خانہ ۱۲)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="25 ربیع الثانی، 1448 ہجری" 
+                  value={formData.hijriDate}
+                  onChange={(e) => updateField('hijriDate', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">وقتِ نکاح</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="08:30 PM" 
+                  value={formData.nikkahTime}
+                  onChange={(e) => updateField('nikkahTime', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۳: فیس رجسٹریشن اور قسم نکاح نامہ (3 کالمز) */}
+            <div className="form-row-3" style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="form-group">
+                <label className="form-label">قسمِ سرٹیفکیٹ (خانہ ۲۴)</label>
+                <select 
+                  className="form-select"
+                  value={formData.registrationType}
+                  onChange={(e) => updateField('registrationType', e.target.value)}
                 >
-                  <Trash2 size={14} />
-                  <span>ہٹائیں</span>
-                </button>
+                  <option value="computerized">کمپیوٹرائزڈ نکاح نامہ (NRC)</option>
+                  <option value="manual_only">صرف دستی نکاح نامہ (Manual Only)</option>
+                </select>
               </div>
-            )}
 
-            {/* ------------------------------------------------------------------ */}
-            {/* ہر خانے کا اندرونی ان پٹ فیلڈز                                       */}
-            {/* ------------------------------------------------------------------ */}
-            <div style={{ minHeight: '320px', padding: '16px', border: '1.5px solid var(--primary-300)', borderRadius: '12px', background: 'var(--bg-card)' }}>
-              
-              {/* کالم ۱: مقام و علاقہ */}
-              {currentBox === 1 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱: نکاح کس وارڈ/دیہہ/قصبہ/تحصیل و ضلع میں ہوا
-                  </h3>
-                  <div className="form-grid-3">
-                    <div className="form-group">
-                      <label className="form-label">رجسٹریشن / فارم نمبر (Serial No) *</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="مثال: 145/26" 
-                        value={formData.serialNo}
-                        onChange={(e) => updateField('serialNo', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">وارڈ / دیہہ / قصبہ</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="مثال: وارڈ نمبر ۵، سبزہ زار" 
-                        value={formData.wardVillage || ''}
-                        onChange={(e) => updateField('wardVillage', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">یونین کونسل کا نام / نمبر</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="یونین کونسل نمبر ۱۰۴" 
-                        value={formData.unionCouncil}
-                        onChange={(e) => updateField('unionCouncil', e.target.value)}
-                      />
-                    </div>
-                  </div>
+              <div className="form-group">
+                <label className="form-label">فیس رجسٹریشن (خانہ ۲۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="حسب معمول یا رقم مع /۔" 
+                  value={formData.fee?.agreedAmount || ''}
+                  onChange={(e) => updateNested('fee', 'agreedAmount', e.target.value)}
+                />
+              </div>
 
-                  <div className="form-grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">مقامِ انعقادِ نکاح (شادی ہال / مسجد / گھر)</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="قصرِ نور بینکوئٹ ہال، لاہور" 
-                        value={formData.location}
-                        onChange={(e) => updateField('location', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">تحصیل و ضلع</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="ضلع و تحصیل لاہور" 
-                        value={formData.district}
-                        onChange={(e) => updateField('district', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲: کوائف دولہا مع سکونت */}
-              {currentBox === 2 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲: دولہا اور اس کے والد کا نام معہ سکونت
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">نام دولہا (Groom Name) *</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="محمد عثمان علی" 
-                        value={formData.groom.name}
-                        onChange={(e) => updateNested('groom', 'name', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">ولدیت دولہا (Father Name) *</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="چوہدری لیاقت علی" 
-                        value={formData.groom.fatherName}
-                        onChange={(e) => updateNested('groom', 'fatherName', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">شناختی کارڈ نمبر دولہا</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="35202-xxxxxxx-x" 
-                        value={formData.groom.cnic}
-                        onChange={(e) => updateNested('groom', 'cnic', formatCNIC(e.target.value))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">رابطہ فون نمبر دولہا</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="0300-xxxxxxx" 
-                        value={formData.groom.phone}
-                        onChange={(e) => updateNested('groom', 'phone', formatPhone(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginTop: '12px' }}>
-                    <label className="form-label">رہائشی پتہ / سکونت دولہا</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="مکان نمبر 45، بلاک بی، سبزہ زار سکیم، ملتان روڈ، لاہور" 
-                      value={formData.groom.address}
-                      onChange={(e) => updateNested('groom', 'address', e.target.value)}
-                    />
-                  </div>
-
-                  {/* دولہا شناختی کارڈ اپلوڈ شارٹ کٹ */}
-                  <div style={{ marginTop: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '5px 10px', cursor: 'pointer' }}>
-                      <Camera size={14} />
-                      <span>دولہا شناختی کارڈ (فرنٹ) اپلوڈ کریں</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVaultDocUpload('groomCnicFront', e.target.files?.[0])} />
-                    </label>
-                    <label className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '5px 10px', cursor: 'pointer' }}>
-                      <Camera size={14} />
-                      <span>دولہا شناختی کارڈ (بیک) اپلوڈ کریں</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVaultDocUpload('groomCnicBack', e.target.files?.[0])} />
-                    </label>
-                    {formData.vaultDocuments?.groomCnicFront && <span style={{ color: '#059669', fontSize: '0.8rem' }}>✓ فرنٹ تصویر موجود ہے</span>}
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۳: دولہا کی عمر */}
-              {currentBox === 3 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۳: دولہا کی عمر (Groom's Age)
-                  </h3>
-                  <div className="form-group" style={{ maxWidth: '300px' }}>
-                    <label className="form-label">عمر سالوں میں (مثلاً 28 سال)</label>
-                    <input 
-                      type="number" 
-                      className="form-control font-num" 
-                      placeholder="28" 
-                      value={formData.groom.age}
-                      onChange={(e) => updateNested('groom', 'age', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۴: کوائف دلہن مع سکونت */}
-              {currentBox === 4 && (
-                <div>
-                  <h3 style={{ color: 'var(--gold-700)', marginBottom: '12px' }}>
-                    خانہ نمبر ۴: دلہن اور اس کے والد کا نام معہ سکونت
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">نام دلہن (Bride Name) *</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="فاطمہ زہرا" 
-                        value={formData.bride.name}
-                        onChange={(e) => updateNested('bride', 'name', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">ولدیت دلہن (Father Name) *</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="میاں خادم حسین" 
-                        value={formData.bride.fatherName}
-                        onChange={(e) => updateNested('bride', 'fatherName', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">شناختی کارڈ نمبر دلہن</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="35201-xxxxxxx-x" 
-                        value={formData.bride.cnic}
-                        onChange={(e) => updateNested('bride', 'cnic', formatCNIC(e.target.value))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">رابطہ فون نمبر دلہن / سرپرست</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="0321-xxxxxxx" 
-                        value={formData.bride.phone}
-                        onChange={(e) => updateNested('bride', 'phone', formatPhone(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginTop: '12px' }}>
-                    <label className="form-label">رہائشی پتہ / سکونت دلہن</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="گلی نمبر 2، محلہ اسلام پورہ، نزد جامع مسجد، لاہور" 
-                      value={formData.bride.address}
-                      onChange={(e) => updateNested('bride', 'address', e.target.value)}
-                    />
-                  </div>
-
-                  {/* دلہن شناختی کارڈ اپلوڈ شارٹ کٹ */}
-                  <div style={{ marginTop: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '5px 10px', cursor: 'pointer' }}>
-                      <Camera size={14} />
-                      <span>دلہن شناختی کارڈ (فرنٹ) اپلوڈ کریں</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVaultDocUpload('brideCnicFront', e.target.files?.[0])} />
-                    </label>
-                    <label className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '5px 10px', cursor: 'pointer' }}>
-                      <Camera size={14} />
-                      <span>دلہن شناختی کارڈ (بیک) اپلوڈ کریں</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVaultDocUpload('brideCnicBack', e.target.files?.[0])} />
-                    </label>
-                    {formData.vaultDocuments?.brideCnicFront && <span style={{ color: '#059669', fontSize: '0.8rem' }}>✓ فرنٹ تصویر موجود ہے</span>}
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۵: دلہن کنواری ہے یا بیوہ یا مطلقہ */}
-              {currentBox === 5 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۵: دلہن کنواری ہے یا بیوہ یا مطلقہ
-                  </h3>
-                  <div className="form-group" style={{ maxWidth: '300px' }}>
-                    <label className="form-label">ازدواجی حیثیت</label>
-                    <select 
-                      className="form-control"
-                      value={formData.bride.maritalStatus}
-                      onChange={(e) => updateNested('bride', 'maritalStatus', e.target.value)}
+              <div className="form-group">
+                <label className="form-label">فوری فیس شارٹ کٹس</label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {['حسب معمول', 'حسب ضابطہ', '5,000/-', '10,000/-'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                      onClick={() => updateNested('fee', 'agreedAmount', tag)}
                     >
-                      <option value="کنواری">کنواری (باكرہ)</option>
-                      <option value="بیوہ">بیوہ</option>
-                      <option value="مطلقہ">مطلقہ</option>
-                    </select>
-                  </div>
+                      {tag}
+                    </button>
+                  ))}
                 </div>
-              )}
-
-              {/* کالم ۶: دلہن کی عمر */}
-              {currentBox === 6 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۶: دلہن کی عمر (Bride's Age)
-                  </h3>
-                  <div className="form-group" style={{ maxWidth: '300px' }}>
-                    <label className="form-label">عمر سالوں میں (مثلاً 25 سال)</label>
-                    <input 
-                      type="number" 
-                      className="form-control font-num" 
-                      placeholder="25" 
-                      value={formData.bride.age}
-                      onChange={(e) => updateNested('bride', 'age', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۷: وکیل دلہن */}
-              {currentBox === 7 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۷: اگر دلہن کی طرف سے وکیل مقرر کیا گیا ہو تو اس کا نام، والد کا نام معہ سکونت
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">نام وکیلِ دلہن</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="محمد ارشد" 
-                        value={formData.bride.vakilName || ''}
-                        onChange={(e) => updateNested('bride', 'vakilName', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">ولدیت وکیلِ دلہن</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="میاں خادم حسین" 
-                        value={formData.bride.vakilFatherName || ''}
-                        onChange={(e) => updateNested('bride', 'vakilFatherName', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">شناختی کارڈ وکیل</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="35201-xxxxxxx-x" 
-                        value={formData.bride.vakilCnic || ''}
-                        onChange={(e) => updateNested('bride', 'vakilCnic', formatCNIC(e.target.value))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">فون نمبر وکیل</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="0322-xxxxxxx" 
-                        value={formData.bride.vakilPhone || ''}
-                        onChange={(e) => updateNested('bride', 'vakilPhone', formatPhone(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginTop: '12px' }}>
-                    <label className="form-label">سکونت وکیلِ دلہن</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="اسلام پورہ، لاہور" 
-                      value={formData.bride.vakilAddress || ''}
-                      onChange={(e) => updateNested('bride', 'vakilAddress', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۸: گواہان تقرری وکیل دلہن */}
-              {currentBox === 8 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۸: دلہن کی طرف سے مقرر کردہ وکیل کی تقرری کے گواہان معہ ولدیت، رشتہ اور سکونت
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">تفصیل گواہانِ تقرری وکیل (نام، ولدیت، رشتہ معہ دلہن و سکونت)</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="۱۔ سید زوار شاہ ولد علی شاہ (چچا)، اسلام پورہ لاہور&#10;۲۔ کامران یوسف ولد محمد یوسف (ماموں)، لاہور"
-                      value={formData.bride.vakilWitnesses || ''}
-                      onChange={(e) => updateNested('bride', 'vakilWitnesses', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۹: وکیل دولہا */}
-              {currentBox === 9 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۹: اگر دولہا کی طرف سے وکیل مقرر کیا گیا ہو تو اس کا نام، ولدیت و سکونت
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">نام وکیلِ دولہا</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="طارق محمود" 
-                        value={formData.groom.vakilName || ''}
-                        onChange={(e) => updateNested('groom', 'vakilName', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">ولدیت وکیلِ دولہا</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="عبدالرشید" 
-                        value={formData.groom.vakilFatherName || ''}
-                        onChange={(e) => updateNested('groom', 'vakilFatherName', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">شناختی کارڈ وکیل</label>
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="35201-xxxxxxx-x" 
-                        value={formData.groom.vakilCnic || ''}
-                        onChange={(e) => updateNested('groom', 'vakilCnic', formatCNIC(e.target.value))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">سکونت وکیلِ دولہا</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="سبزہ زار، لاہور" 
-                        value={formData.groom.vakilAddress || ''}
-                        onChange={(e) => updateNested('groom', 'vakilAddress', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۰: گواہان تقرری وکیل دولہا */}
-              {currentBox === 10 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۰: دولہا کے مقرر کردہ وکیل کی تقرری کے گواہان معہ ولدیت و سکونت
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">گواہان تقرری وکیلِ دولہا (اگر دولہا خود حاضر نہ ہو اور وکیل کے ذریعے نکاح ہو)</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="اگر دولہا خود مجلس میں حاضر ہو تو یہ خانہ خالی رکھا جا سکتا ہے۔"
-                      value={formData.groom.vakilWitnesses || ''}
-                      onChange={(e) => updateNested('groom', 'vakilWitnesses', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۱: شرعی گواہانِ نکاح */}
-              {currentBox === 11 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۱: نکاح کے شرعی گواہان کے نام معہ ولدیت، شناختی کارڈ و سکونت
-                  </h3>
-                  
-                  {/* شرعی گواہ نمبر ۱ */}
-                  <div style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--border-color)' }}>
-                    <h4 style={{ margin: '0 0 10px', color: 'var(--primary-700)' }}>شرعی گواہ نمبر ۱ (دولہا کی جانب سے)</h4>
-                    <div className="form-grid-3">
-                      <input type="text" className="form-control" placeholder="نام گواہ ۱" value={formData.witnessGroom1.name} onChange={(e) => updateNested('witnessGroom1', 'name', e.target.value)} />
-                      <input type="text" className="form-control" placeholder="ولدیت" value={formData.witnessGroom1.fatherName} onChange={(e) => updateNested('witnessGroom1', 'fatherName', e.target.value)} />
-                      <input type="text" className="form-control font-num" placeholder="شناختی کارڈ" value={formData.witnessGroom1.cnic} onChange={(e) => updateNested('witnessGroom1', 'cnic', formatCNIC(e.target.value))} />
-                    </div>
-                    <div className="form-grid-2" style={{ marginTop: '8px' }}>
-                      <input type="text" className="form-control font-num" placeholder="فون نمبر" value={formData.witnessGroom1.phone} onChange={(e) => updateNested('witnessGroom1', 'phone', formatPhone(e.target.value))} />
-                      <input type="text" className="form-control" placeholder="سکونت / پتہ" value={formData.witnessGroom1.address} onChange={(e) => updateNested('witnessGroom1', 'address', e.target.value)} />
-                    </div>
-                  </div>
-
-                  {/* شرعی گواہ نمبر ۲ */}
-                  <div style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <h4 style={{ margin: '0 0 10px', color: 'var(--gold-700)' }}>شرعی گواہ نمبر ۲ (دلہن کی جانب سے)</h4>
-                    <div className="form-grid-3">
-                      <input type="text" className="form-control" placeholder="نام گواہ ۲" value={formData.witnessBride1.name} onChange={(e) => updateNested('witnessBride1', 'name', e.target.value)} />
-                      <input type="text" className="form-control" placeholder="ولدیت" value={formData.witnessBride1.fatherName} onChange={(e) => updateNested('witnessBride1', 'fatherName', e.target.value)} />
-                      <input type="text" className="form-control font-num" placeholder="شناختی کارڈ" value={formData.witnessBride1.cnic} onChange={(e) => updateNested('witnessBride1', 'cnic', formatCNIC(e.target.value))} />
-                    </div>
-                    <div className="form-grid-2" style={{ marginTop: '8px' }}>
-                      <input type="text" className="form-control font-num" placeholder="فون نمبر" value={formData.witnessBride1.phone} onChange={(e) => updateNested('witnessBride1', 'phone', formatPhone(e.target.value))} />
-                      <input type="text" className="form-control" placeholder="سکونت / پتہ" value={formData.witnessBride1.address} onChange={(e) => updateNested('witnessBride1', 'address', e.target.value)} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۲: تاریخ انعقادِ نکاح */}
-              {currentBox === 12 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۲: تاریخِ انعقادِ نکاح (شمسی و قمری) و وقت
-                  </h3>
-                  <div className="form-grid-3">
-                    <div className="form-group">
-                      <label className="form-label">شمسی تاریخِ نکاح</label>
-                      <input 
-                        type="date" 
-                        className="form-control font-num" 
-                        value={formData.nikkahDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateField('nikkahDate', val);
-                          updateField('hijriDate', getHijriDate(val));
-                        }}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">قمری / ہجری تاریخ (قابلِ ترمیم)</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        value={formData.hijriDate}
-                        onChange={(e) => updateField('hijriDate', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">وقتِ نکاح</label>
-                      <input 
-                        type="time" 
-                        className="form-control font-num" 
-                        value={formData.nikkahTime}
-                        onChange={(e) => updateField('nikkahTime', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۳: رقم حق مہر */}
-              {currentBox === 13 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۳: رقم حق مہر (کل رقم بحساب ہندسہ و الفاظ)
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">کل رقم حق مہر (روپوں میں) *</label>
-                      <input 
-                        type="number" 
-                        className="form-control font-num" 
-                        placeholder="500000" 
-                        value={formData.mehr.totalAmount}
-                        onChange={(e) => updateNested('mehr', 'totalAmount', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">رقم بحسابِ الفاظ</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="پانچ لاکھ روپے فقط" 
-                        value={formData.mehr.totalAmountWords}
-                        onChange={(e) => updateNested('mehr', 'totalAmountWords', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۴: مہر معجل اور مؤجل */}
-              {currentBox === 14 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۴: مہر معجل اور مؤجل کی تفصیل
-                  </h3>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">مہر معجل (نقد ادا شدہ)</label>
-                      <input 
-                        type="number" 
-                        className="form-control font-num" 
-                        placeholder="200000" 
-                        value={formData.mehr.muajjal}
-                        onChange={(e) => updateNested('mehr', 'muajjal', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">مہر مؤجل (واجب الادا عند الطلب)</label>
-                      <input 
-                        type="number" 
-                        className="form-control font-num" 
-                        placeholder="300000" 
-                        value={formData.mehr.muwajjal}
-                        onChange={(e) => updateNested('mehr', 'muwajjal', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۵: موقع پر ادا شدہ مہر */}
-              {currentBox === 15 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۵: مہر کا کتنا حصہ نکاح کے وقت ادا کیا گیا
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">موقع پر ادا شدہ مہر کی تفصیل</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="دو لاکھ روپے نقد موقع پر ادا کر دیے گئے۔" 
-                      value={formData.mehr.paidAtNikkah || ''}
-                      onChange={(e) => updateNested('mehr', 'paidAtNikkah', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۶: مہر جائیداد / سونا */}
-              {currentBox === 16 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۶: کیا مہر کے عوض کوئی جائیداد یا طلائی زیورات دیے گئے؟
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">سونے کا وزن، طلائی زیورات یا منقولہ/غیر منقولہ جائیداد کی تفصیل</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="پانچ تولہ طلائی زیورات بحق دلہن دیے گئے اور ان کی ملکیت تسلیم کی گئی۔"
-                      value={formData.mehr.goldWeight || ''}
-                      onChange={(e) => updateNested('mehr', 'goldWeight', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۷: خصوصی شرائط */}
-              {currentBox === 17 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۷: خصوصی شرائط نکاح (اگر کوئی ہوں)
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">خصوصی شرائط (نان و نفقہ، الگ رہائش، زیورات کی حفاظت وغیرہ)</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="نان و نفقہ ماہانہ مقررہ تاریخ کو ادا ہوگا۔ علیحدہ رہائش کا بندوبست ہوگا۔"
-                      value={formData.mehr.specialConditions || ''}
-                      onChange={(e) => updateNested('mehr', 'specialConditions', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۸: تفویضِ طلاق */}
-              {currentBox === 18 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۸: کیا شوہر نے طلاق کا حق بیوی کو تفویض کیا ہے؟
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">تفویضِ طلاق کی کیفیت</label>
-                    <select 
-                      className="form-control"
-                      value={formData.mehr.delegatedDivorce}
-                      onChange={(e) => updateNested('mehr', 'delegatedDivorce', e.target.value)}
-                    >
-                      <option value="نہیں">نہیں (شوہر نے طلاق کا حق تفویض نہیں کیا)</option>
-                      <option value="ہاں">ہاں (تفویض کیا ہے)</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۱۹: پابندی حق طلاق */}
-              {currentBox === 19 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۱۹: کیا شوہر کے حقِ طلاق پر کوئی پابندی عائد کی گئی ہے؟
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">شوہر کے حقِ طلاق پر عائد شرائط / پابندی</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="کوئی نہیں / شرعی و قانونی پابندیاں" 
-                      value={formData.mehr.husbandRestrictions || ''}
-                      onChange={(e) => updateNested('mehr', 'husbandRestrictions', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲۰: دستاویزات مہر و نان نفقہ */}
-              {currentBox === 20 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲۰: نکاح کے وقت مہر، نان نفقہ وغیرہ کی بابت دستاویزات
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">تیار کردہ دستاویزات / رسیدات کی تفصیل</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="مہر کی رسید الگ سے تیار کر کے دلہن کے حوالے کی گئی۔" 
-                      value={formData.mehr.dowerDocs || ''}
-                      onChange={(e) => updateNested('mehr', 'dowerDocs', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲۱: پہلے سے موجود بیوی */}
-              {currentBox === 21 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲۱: کیا دولہا کی پہلے سے کوئی بیوی موجود ہے؟
-                  </h3>
-                  <div className="form-group" style={{ maxWidth: '320px' }}>
-                    <label className="form-label">پہلی بیوی کی موجودگی</label>
-                    <select 
-                      className="form-control"
-                      value={formData.mehr.existingWives}
-                      onChange={(e) => updateNested('mehr', 'existingWives', e.target.value)}
-                    >
-                      <option value="نہیں">نہیں (پہلی شادی ہے / کنوارا)</option>
-                      <option value="ہاں">ہاں (پہلے سے بیوی موجود ہے)</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲۲: اجازت نامہ ثالثی کونسل */}
-              {currentBox === 22 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲۲: کیا دولہا نے دوسری شادی کے لیے ثالثی کونسل سے اجازت حاصل کی ہے؟
-                  </h3>
-                  <div className="form-group">
-                    <label className="form-label">اجازت نامہ کا لیٹر نمبر و تاریخ (اگر لاگو ہو)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="اگر پہلی شادی ہو تو یہ خانہ خالی رہے گا۔" 
-                      value={formData.mehr.permissionLetter || ''}
-                      onChange={(e) => updateNested('mehr', 'permissionLetter', e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲۳: نکاح خواں کے کوائف (ذاتی یا مہمان) */}
-              {currentBox === 23 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲۳: نکاح پڑھانے والے (نکاح خواں) کے کوائف
-                  </h3>
-                  
-                  {/* نکاح خواں کی قسم کا انتخاب */}
-                  <div style={{ background: 'var(--bg-card-subtle)', padding: '14px', borderRadius: '8px', marginBottom: '16px', border: '1.5px solid var(--primary-400)' }}>
-                    <label className="form-label" style={{ fontSize: '1rem', fontWeight: 700 }}>
-                      نکاح کس نے پڑھایا ہے؟
-                    </label>
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '6px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="officiantType" 
-                          checked={formData.officiantType === 'self'} 
-                          onChange={() => updateField('officiantType', 'self')} 
-                        />
-                        <strong>ذاتی (خود نکاح رجسٹرار نے پڑھایا)</strong>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="officiantType" 
-                          checked={formData.officiantType === 'guest'} 
-                          onChange={() => updateField('officiantType', 'guest')} 
-                        />
-                        <strong style={{ color: 'var(--primary-800)' }}>دیگر / مہمان نکاح خواں (کسی اور عالم دین نے پڑھایا)</strong>
-                      </label>
-                    </div>
-                  </div>
-
-                  {formData.officiantType === 'self' ? (
-                    <div style={{ padding: '12px', background: 'var(--primary-50)', borderRadius: '8px', border: '1px solid var(--primary-300)' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--primary-900)' }}>رجسٹرار کے اپنے کوائف پرنٹ میں استعمال ہوں گے:</div>
-                      <div style={{ fontSize: '0.9rem', marginTop: '4px' }}>
-                        {profile?.name || 'مولانا قاری محمد اسماعیل صدیقی'} (لائسنس: {profile?.licenseNo || 'NK-LHR-2024/89'})
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 style={{ color: 'var(--gold-700)', marginBottom: '10px' }}>دیگر / مہمان نکاح خواں کی معلومات درج کریں:</h4>
-                      <div className="form-grid-2">
-                        <div className="form-group">
-                          <label className="form-label">نام مہمان نکاح خواں *</label>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            placeholder="مولانا مفتی عبدالحئی قاسمی" 
-                            value={formData.guestOfficiant?.name || ''}
-                            onChange={(e) => updateNested('guestOfficiant', 'name', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">ولدیت نکاح خواں</label>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            placeholder="قاری نور محمد" 
-                            value={formData.guestOfficiant?.fatherName || ''}
-                            onChange={(e) => updateNested('guestOfficiant', 'fatherName', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="form-grid-2" style={{ marginTop: '10px' }}>
-                        <div className="form-group">
-                          <label className="form-label">مسجد / مدرسہ / رہائشی علاقہ</label>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            placeholder="جامع مسجد بیت المکرم، فیصل ٹاؤن، لاہور" 
-                            value={formData.guestOfficiant?.masjidOrArea || ''}
-                            onChange={(e) => updateNested('guestOfficiant', 'masjidOrArea', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">رابطہ فون نمبر</label>
-                          <input 
-                            type="text" 
-                            className="form-control font-num" 
-                            placeholder="0321-xxxxxxx" 
-                            value={formData.guestOfficiant?.phone || ''}
-                            onChange={(e) => updateNested('guestOfficiant', 'phone', formatPhone(e.target.value))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* کالم ۲۴: فیس رجسٹریشن، وصولی و قسم نکاح نامہ */}
-              {currentBox === 24 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                    خانہ نمبر ۲۴: فیس رجسٹریشن، وصولی کی صورتحال اور قسمِ نکاح نامہ
-                  </h3>
-
-                  {/* قسم نکاح نامہ */}
-                  <div style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
-                    <label className="form-label" style={{ fontWeight: 700 }}>نکاح نامہ کی قسم (Registration Type):</label>
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '6px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="registrationType" 
-                          checked={formData.registrationType === 'computerized'} 
-                          onChange={() => updateField('registrationType', 'computerized')} 
-                        />
-                        <strong>کمپیوٹرائزڈ نکاح نامہ (نکاح رجسٹریشن سرٹیفکیٹ - کونسل / نادرا)</strong>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input 
-                          type="radio" 
-                          name="registrationType" 
-                          checked={formData.registrationType === 'manual_only'} 
-                          onChange={() => updateField('registrationType', 'manual_only')} 
-                        />
-                        <strong>صرف دستی / مینول نکاح نامہ</strong>
-                      </label>
-                    </div>
-
-                    {/* کمپیوٹرائزڈ نکاح نامہ تصویر اپلوڈ */}
-                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
-                      <label className="btn btn-secondary" style={{ fontSize: '0.84rem', cursor: 'pointer' }}>
-                        <Camera size={15} />
-                        <span>کمپیوٹرائزڈ نکاح نامے کی تصویر محفوظ کریں</span>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleVaultDocUpload('computerizedNikkahImg', e.target.files?.[0])} />
-                      </label>
-                      {formData.vaultDocuments?.computerizedNikkahImg && (
-                        <span style={{ color: '#059669', fontSize: '0.84rem', marginRight: '10px' }}>
-                          ✓ کمپیوٹرائزڈ نکاح نامہ کی تصویر محفوظ ہے
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* فیس اکاؤنٹنگ */}
-                  <div className="form-grid-2" style={{ marginBottom: '16px' }}>
-                    <div className="form-group">
-                      <label className="form-label">طے شدہ فیس (روپوں میں)</label>
-                      <input 
-                        type="number" 
-                        className="form-control font-num" 
-                        placeholder="5000" 
-                        value={formData.fee.agreedAmount}
-                        onChange={(e) => updateNested('fee', 'agreedAmount', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">وصول شدہ فیس (روپوں میں)</label>
-                      <input 
-                        type="number" 
-                        className="form-control font-num" 
-                        placeholder="3000" 
-                        value={formData.fee.receivedAmount}
-                        onChange={(e) => updateNested('fee', 'receivedAmount', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* وصولی و ترسیل */}
-                  <div style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <h4 style={{ margin: '0 0 10px', color: 'var(--primary-800)' }}>نکاح نامہ وصولی و حوالگی کی کیفیت:</h4>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '10px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={formData.delivery.isDelivered}
-                        onChange={(e) => updateNested('delivery', 'isDelivered', e.target.checked)}
-                      />
-                      <strong>متعلقہ شخص نے اپنا نکاح نامہ وصول کر لیا ہے (حوالے کر دیا گیا)</strong>
-                    </label>
-
-                    {formData.delivery.isDelivered && (
-                      <div className="form-grid-3" style={{ marginTop: '10px' }}>
-                        <div>
-                          <label className="form-label">وصول کنندہ کا نام</label>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            placeholder="محمد عثمان (دولہا خود)" 
-                            value={formData.delivery.deliveredTo}
-                            onChange={(e) => updateNested('delivery', 'deliveredTo', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="form-label">تاریخِ وصولی</label>
-                          <input 
-                            type="date" 
-                            className="form-control font-num" 
-                            value={formData.delivery.deliveryDate || new Date().toISOString().slice(0, 10)}
-                            onChange={(e) => updateNested('delivery', 'deliveryDate', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="form-label">وصول کنندہ کا فون</label>
-                          <input 
-                            type="text" 
-                            className="form-control font-num" 
-                            placeholder="0300-xxxxxxx" 
-                            value={formData.delivery.recipientPhone}
-                            onChange={(e) => updateNested('delivery', 'recipientPhone', formatPhone(e.target.value))}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* کالم ۲۵: دستخط، انگوٹھا جات و مہر */}
-              {currentBox === 25 && (
-                <div>
-                  <h3 style={{ color: 'var(--primary-800)', marginBottom: '8px' }}>
-                    خانہ نمبر ۲۵: دستخط، انگوٹھا جات فریقین، گواہان و مہر نکاح رجسٹرار
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
-                    نوٹ: اگر آپ دستخطوں کی تصویر موبائل کیمرے سے لگانا چاہیں تو لگا سکتے ہیں، یا اس خانے کو خالی چھوڑ دیں تاکہ پرنٹ کے بعد ہاتھ سے دستخط لیے جا سکیں۔
-                  </p>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-                    {/* دولہا دستخط */}
-                    <div style={{ border: '1px solid var(--border-color)', padding: '12px', borderRadius: '8px', background: 'var(--bg-card-subtle)' }}>
-                      <strong style={{ fontSize: '0.88rem' }}>دستخط دولہا / وکیل</strong>
-                      <div style={{ marginTop: '8px' }}>
-                        <label className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 8px', width: '100%', cursor: 'pointer' }}>
-                          <Camera size={14} />
-                          <span>تصویر لگائیں</span>
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleAttachColumnImage('groomSignatureImg', e.target.files?.[0])} />
-                        </label>
-                      </div>
-                      {formData.columnSignatures?.groomSignatureImg && (
-                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                          <img src={formData.columnSignatures.groomSignatureImg} alt="Groom Sign" style={{ maxHeight: '50px', maxWidth: '100%', objectFit: 'contain' }} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* دلہن دستخط */}
-                    <div style={{ border: '1px solid var(--border-color)', padding: '12px', borderRadius: '8px', background: 'var(--bg-card-subtle)' }}>
-                      <strong style={{ fontSize: '0.88rem' }}>دستخط دلہن / وکیل</strong>
-                      <div style={{ marginTop: '8px' }}>
-                        <label className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 8px', width: '100%', cursor: 'pointer' }}>
-                          <Camera size={14} />
-                          <span>تصویر لگائیں</span>
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleAttachColumnImage('brideSignatureImg', e.target.files?.[0])} />
-                        </label>
-                      </div>
-                      {formData.columnSignatures?.brideSignatureImg && (
-                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                          <img src={formData.columnSignatures.brideSignatureImg} alt="Bride Sign" style={{ maxHeight: '50px', maxWidth: '100%', objectFit: 'contain' }} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* گواہان دستخط */}
-                    <div style={{ border: '1px solid var(--border-color)', padding: '12px', borderRadius: '8px', background: 'var(--bg-card-subtle)' }}>
-                      <strong style={{ fontSize: '0.88rem' }}>دستخط شرعی گواہان</strong>
-                      <div style={{ marginTop: '8px' }}>
-                        <label className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 8px', width: '100%', cursor: 'pointer' }}>
-                          <Camera size={14} />
-                          <span>تصویر لگائیں</span>
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleAttachColumnImage('witnessesSignatureImg', e.target.files?.[0])} />
-                        </label>
-                      </div>
-                      {formData.columnSignatures?.witnessesSignatureImg && (
-                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                          <img src={formData.columnSignatures.witnessesSignatureImg} alt="Witnesses Sign" style={{ maxHeight: '50px', maxWidth: '100%', objectFit: 'contain' }} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* نکاح خواں دستخط و مہر */}
-                    <div style={{ border: '1px solid var(--border-color)', padding: '12px', borderRadius: '8px', background: 'var(--bg-card-subtle)' }}>
-                      <strong style={{ fontSize: '0.88rem' }}>مہر و دستخط رجسٹرار</strong>
-                      <div style={{ marginTop: '8px' }}>
-                        <label className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 8px', width: '100%', cursor: 'pointer' }}>
-                          <Camera size={14} />
-                          <span>مہر / دستخط تصویر</span>
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleAttachColumnImage('registrarSealImg', e.target.files?.[0])} />
-                        </label>
-                      </div>
-                      {formData.columnSignatures?.registrarSealImg && (
-                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                          <img src={formData.columnSignatures.registrarSealImg} alt="Seal Sign" style={{ maxHeight: '50px', maxWidth: '100%', objectFit: 'contain' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              </div>
             </div>
 
-            {/* باکس بائی باکس کنٹرول بٹنز (اگلا / پچھلا / مکمل کریں) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={currentBox === 1}
-                onClick={() => setCurrentBox((prev) => Math.max(1, prev - 1))}
-              >
-                <ChevronRight size={18} />
-                <span>پچھلا خانہ</span>
-              </button>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px' }}>
-                  <Save size={18} />
-                  <span>محفوظ کریں (Save)</span>
-                </button>
-
-                {currentBox < 25 ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => setCurrentBox((prev) => Math.min(25, prev + 1))}
+            {/* سطر ۴: نکاح خواں اور رجسٹرار کوائف (خانہ ۲۳) */}
+            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label className="form-label">نکاح کس نے پڑھایا؟ (خانہ ۲۳)</label>
+                  <select 
+                    className="form-select"
+                    value={formData.officiantType}
+                    onChange={(e) => updateField('officiantType', e.target.value)}
                   >
-                    <span>اگلا خانہ</span>
-                    <ChevronLeft size={18} />
-                  </button>
-                ) : (
-                  <button type="submit" className="btn btn-primary" style={{ background: 'var(--gold-600)' }}>
-                    <CheckCircle2 size={18} />
-                    <span>تمام خانے مکمل اور محفوظ کریں</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* ========================================================================= */
-          /* مکمل فارم موڈ (تمام خانے ایک ساتھ دیکھنے اور ایڈٹ کرنے کے لیے)           */
-          /* ========================================================================= */
-          <div>
-            <div style={{ background: 'var(--primary-50)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--primary-300)' }}>
-              <strong>مکمل فارم جائزہ موڈ:</strong> آپ تمام ۲۵ کالمز کا ڈیٹا ایک ہی صفحے پر دیکھ رہے ہیں۔
-            </div>
+                    <option value="self">ذاتی (رجسٹرار نے خود پڑھایا)</option>
+                    <option value="guest">مہمان / دیگر نکاح خواں نے پڑھایا</option>
+                  </select>
+                </div>
 
-            {/* سیکشن ۱: رجسٹریشن اور مقام */}
-            <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-              <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>۱. رجسٹریشن اور مقامِ نکاح</h3>
-              <div className="form-grid-3">
                 <div className="form-group">
-                  <label className="form-label">فارم نمبر *</label>
-                  <input type="text" className="form-control font-num" value={formData.serialNo} onChange={(e) => updateField('serialNo', e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">تاریخ نکاح</label>
-                  <input type="date" className="form-control font-num" value={formData.nikkahDate} onChange={(e) => updateField('nikkahDate', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">مقامِ انعقاد</label>
-                  <input type="text" className="form-control" value={formData.location} onChange={(e) => updateField('location', e.target.value)} />
+                  <label className="form-label">نکاح رجسٹرار کا نام و لائسنس</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    disabled 
+                    value={`${profile?.name || 'مولانا قاری محمد اسماعیل صدیقی'} (لائسنس: ${profile?.licenseNo || 'NK-LHR-2024/89'})`}
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* سیکشن ۲: دولہا اور دلہن */}
-            <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-              <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>۲. کوائف فریقین (دولہا اور دلہن)</h3>
-              <div className="form-grid-2">
-                <div style={{ background: 'var(--bg-card-subtle)', padding: '14px', borderRadius: '8px' }}>
-                  <h4 style={{ color: 'var(--primary-700)', marginBottom: '10px' }}>کوائف دولہا</h4>
+              {formData.officiantType === 'guest' && (
+                <div className="form-row-4" style={{ marginTop: '10px', background: '#fffbeb', padding: '10px', borderRadius: '6px', border: '1px solid #fde68a' }}>
                   <div className="form-group">
-                    <label className="form-label">نام دولہا *</label>
-                    <input type="text" className="form-control" value={formData.groom.name} onChange={(e) => updateNested('groom', 'name', e.target.value)} required />
+                    <label className="form-label required">نام مہمان نکاح خواں</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="مولانا مفتی محمد احمد" 
+                      value={formData.guestOfficiant?.name || ''}
+                      onChange={(e) => updateNested('guestOfficiant', 'name', e.target.value)}
+                    />
                   </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">ولدیت دولہا *</label>
-                    <input type="text" className="form-control" value={formData.groom.fatherName} onChange={(e) => updateNested('groom', 'fatherName', e.target.value)} required />
-                  </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">شناختی کارڈ</label>
-                    <input type="text" className="form-control font-num" value={formData.groom.cnic} onChange={(e) => updateNested('groom', 'cnic', formatCNIC(e.target.value))} />
-                  </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">عمر سالوں میں</label>
-                    <input type="number" className="form-control font-num" value={formData.groom.age} onChange={(e) => updateNested('groom', 'age', e.target.value)} />
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-card-subtle)', padding: '14px', borderRadius: '8px' }}>
-                  <h4 style={{ color: 'var(--gold-700)', marginBottom: '10px' }}>کوائف دلہن</h4>
                   <div className="form-group">
-                    <label className="form-label">نام دلہن *</label>
-                    <input type="text" className="form-control" value={formData.bride.name} onChange={(e) => updateNested('bride', 'name', e.target.value)} required />
+                    <label className="form-label">ولدیت نکاح خواں</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="حافظ بشیر احمد" 
+                      value={formData.guestOfficiant?.fatherName || ''}
+                      onChange={(e) => updateNested('guestOfficiant', 'fatherName', e.target.value)}
+                    />
                   </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">ولدیت دلہن *</label>
-                    <input type="text" className="form-control" value={formData.bride.fatherName} onChange={(e) => updateNested('bride', 'fatherName', e.target.value)} required />
+                  <div className="form-group">
+                    <label className="form-label">جامع مسجد / علاقہ</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="جامع مسجد مدینہ، گلبرگ" 
+                      value={formData.guestOfficiant?.masjidOrArea || ''}
+                      onChange={(e) => updateNested('guestOfficiant', 'masjidOrArea', e.target.value)}
+                    />
                   </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">شناختی کارڈ</label>
-                    <input type="text" className="form-control font-num" value={formData.bride.cnic} onChange={(e) => updateNested('bride', 'cnic', formatCNIC(e.target.value))} />
-                  </div>
-                  <div className="form-group" style={{ marginTop: '8px' }}>
-                    <label className="form-label">عمر سالوں میں</label>
-                    <input type="number" className="form-control font-num" value={formData.bride.age} onChange={(e) => updateNested('bride', 'age', e.target.value)} />
+                  <div className="form-group">
+                    <label className="form-label">رابطہ فون نمبر</label>
+                    <input 
+                      type="text" 
+                      className="form-input font-num" 
+                      placeholder="0300-xxxxxxx" 
+                      value={formData.guestOfficiant?.phone || ''}
+                      onChange={(e) => updateNested('guestOfficiant', 'phone', formatPhone(e.target.value))}
+                    />
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* سیکشن ۳: حق مہر، فیس اور ترسیل */}
-            <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>۳. مہر، فیس، وصولی و نکاح خواں</h3>
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label className="form-label">کل رقم حق مہر (روپے)</label>
-                  <input type="number" className="form-control font-num" value={formData.mehr.totalAmount} onChange={(e) => updateNested('mehr', 'totalAmount', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">طے شدہ فیس</label>
-                  <input type="number" className="form-control font-num" value={formData.fee.agreedAmount} onChange={(e) => updateNested('fee', 'agreedAmount', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">وصول شدہ فیس</label>
-                  <input type="number" className="form-control font-num" value={formData.fee.receivedAmount} onChange={(e) => updateNested('fee', 'receivedAmount', e.target.value)} />
-                </div>
-              </div>
-            </div>
-
-            {/* محفوظ کرنے کا بٹن */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="button" className="btn btn-secondary" onClick={onCancel}>منسوخ کریں</button>
-              <button type="submit" className="btn btn-primary" style={{ padding: '8px 24px' }}>
-                <Save size={18} />
-                <span>ریکارڈ محفوظ کریں</span>
-              </button>
+              )}
             </div>
           </div>
         )}
 
+        {/* ============================================================ */}
+        {/* مرحلہ ۲: دولہا کے کوائف (Groom - خانہ ۲، ۳، ۹، ۱۰ و گواہان)      */}
+        {/* ============================================================ */}
+        {(viewMode === 'full_review' || activeStep === 2) && (
+          <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--primary-400)', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
+                ۲۔ دولہا کے کوائف (خانہ ۲، ۳، ۹، ۱۰ اور گواہان)
+              </h3>
+              <span className="badge badge-green">مرحلہ ۲ / ۵</span>
+            </div>
+
+            {/* سطر ۱: دولہا بنیادی معلومات (4 کالمز میں سمٹی ہوئی) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label required">نام دولہا (خانہ ۲)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="محمد عثمان علی" 
+                  value={formData.groom.name}
+                  onChange={(e) => updateNested('groom', 'name', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">ولدیت دولہا (خانہ ۲)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="چوہدری لیاقت علی" 
+                  value={formData.groom.fatherName}
+                  onChange={(e) => updateNested('groom', 'fatherName', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">شناختی کارڈ دولہا</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="35202-xxxxxxx-x" 
+                  value={formData.groom.cnic}
+                  onChange={(e) => updateNested('groom', 'cnic', formatCNIC(e.target.value))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">رابطہ فون نمبر دولہا</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="0300-xxxxxxx" 
+                  value={formData.groom.phone}
+                  onChange={(e) => updateNested('groom', 'phone', formatPhone(e.target.value))}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۲: تاریخِ پیدائش، عمر سالوں میں، حیثیت، سکونت (4 کالمز) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label">
+                  <Calendar size={14} color="var(--primary-700)" />
+                  <span>تاریخِ پیدائش (کلنڈر - خانہ ۳)</span>
+                </label>
+                <input 
+                  type="date" 
+                  className="form-input font-num" 
+                  value={formData.groom.dob || ''}
+                  onChange={(e) => {
+                    const dob = e.target.value;
+                    updateNested('groom', 'dob', dob);
+                    const computed = calculateAgeFromDob(dob);
+                    if (computed) updateNested('groom', 'age', computed);
+                  }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">عمر سالوں میں (خانہ ۳)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="مثال: 28" 
+                  value={formData.groom.age}
+                  onChange={(e) => updateNested('groom', 'age', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">ازدواجی حیثیت</label>
+                <select 
+                  className="form-select"
+                  value={formData.groom.maritalStatus}
+                  onChange={(e) => updateNested('groom', 'maritalStatus', e.target.value)}
+                >
+                  <option value="کنوارا">کنوارا</option>
+                  <option value="رانڈ / بیوہ">رانڈ / بیوہ</option>
+                  <option value="طلاق یافتہ">طلاق یافتہ</option>
+                  <option value="شادی شدہ (دوسری شادی)">شادی شدہ (دوسری شادی)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">رہائشی پتہ / سکونت (خانہ ۲)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="مکان 45، سبزہ زار، لاہور" 
+                  value={formData.groom.address}
+                  onChange={(e) => updateNested('groom', 'address', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* وکیلِ دولہا کا بلاک (خانہ ۹ و ۱۰) */}
+            <div style={{ marginTop: '14px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <strong style={{ fontSize: '0.92rem', color: 'var(--primary-800)' }}>
+                  وکیلِ دولہا و تقرری (خانہ نمبر ۹ و ۱۰):
+                </strong>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
+                    <input 
+                      type="radio" 
+                      name="groomVakilToggle"
+                      checked={!formData.groom?.hasVakil}
+                      onChange={() => updateNested('groom', 'hasVakil', false)}
+                    />
+                    <span style={{ fontWeight: !formData.groom?.hasVakil ? 700 : 400, color: '#15803d' }}>
+                      ✓ دولہا خود حاضر مجلس ہے (وکیل کی حاجت نہیں)
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
+                    <input 
+                      type="radio" 
+                      name="groomVakilToggle"
+                      checked={Boolean(formData.groom?.hasVakil)}
+                      onChange={() => updateNested('groom', 'hasVakil', true)}
+                    />
+                    <span style={{ fontWeight: formData.groom?.hasVakil ? 700 : 400 }}>
+                      وکیل کے ذریعے ایجاب و قبول
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {formData.groom?.hasVakil && (
+                <>
+                  <div className="form-row-4">
+                    <div className="form-group">
+                      <label className="form-label required">نام وکیلِ دولہا</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="طارق محمود" 
+                        value={formData.groom?.vakilName || ''}
+                        onChange={(e) => updateNested('groom', 'vakilName', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">ولدیت وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="عبدالرشید" 
+                        value={formData.groom?.vakilFatherName || ''}
+                        onChange={(e) => updateNested('groom', 'vakilFatherName', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">شناختی کارڈ وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="35201-xxxxxxx-x" 
+                        value={formData.groom?.vakilCnic || ''}
+                        onChange={(e) => updateNested('groom', 'vakilCnic', formatCNIC(e.target.value))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">رابطہ فون وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="0301-xxxxxxx" 
+                        value={formData.groom?.vakilPhone || ''}
+                        onChange={(e) => updateNested('groom', 'vakilPhone', formatPhone(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label">سکونت / پتہ وکیلِ دولہا</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="سبزہ زار، لاہور" 
+                        value={formData.groom?.vakilAddress || ''}
+                        onChange={(e) => updateNested('groom', 'vakilAddress', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">گواہانِ تقرری وکیلِ دولہا (خانہ ۱۰)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="محمد بلال ولد رشید، کاشف ولد انور" 
+                        value={formData.groom?.vakilWitnesses || ''}
+                        onChange={(e) => updateNested('groom', 'vakilWitnesses', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* دولہا کی طرف سے نکاح کے گواہان (خانہ ۱۱ کا حصہ) */}
+            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--primary-800)', marginBottom: '8px' }}>
+                دولہا کی جانب سے شرعی گواہانِ نکاح (خانہ ۱۱):
+              </div>
+              <div className="form-row-4">
+                <div className="form-group">
+                  <label className="form-label">نام شرعی گواہ اول</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="عبدالرحمٰن بٹ" 
+                    value={formData.witnessGroom1?.name || ''}
+                    onChange={(e) => updateNested('witnessGroom1', 'name', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">ولدیت گواہ اول</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="محمد اسلم بٹ" 
+                    value={formData.witnessGroom1?.fatherName || ''}
+                    onChange={(e) => updateNested('witnessGroom1', 'fatherName', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">شناختی کارڈ گواہ اول</label>
+                  <input 
+                    type="text" 
+                    className="form-input font-num" 
+                    placeholder="35202-xxxxxxx-x" 
+                    value={formData.witnessGroom1?.cnic || ''}
+                    onChange={(e) => updateNested('witnessGroom1', 'cnic', formatCNIC(e.target.value))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">سکونت و پتہ گواہ اول</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="ماڈل ٹاؤن، لاہور" 
+                    value={formData.witnessGroom1?.address || ''}
+                    onChange={(e) => updateNested('witnessGroom1', 'address', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* مرحلہ ۳: دلہن کے کوائف (Bride - خانہ ۴، ۵، ۶، ۷، ۸ و گواہ)       */}
+        {/* ============================================================ */}
+        {(viewMode === 'full_review' || activeStep === 3) && (
+          <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--gold-400)', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'var(--gold-700)', margin: 0, fontSize: '1.1rem' }}>
+                ۳۔ دلہن کے کوائف (خانہ ۴، ۵، ۶، ۷، ۸ اور گواہان)
+              </h3>
+              <span className="badge badge-gold">مرحلہ ۳ / ۵</span>
+            </div>
+
+            {/* سطر ۱: دلہن بنیادی معلومات (4 کالمز میں سمٹی ہوئی) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label required">نام دلہن (خانہ ۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="فاطمہ زہرا" 
+                  value={formData.bride.name}
+                  onChange={(e) => updateNested('bride', 'name', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">ولدیت دلہن (خانہ ۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="میاں خادم حسین" 
+                  value={formData.bride.fatherName}
+                  onChange={(e) => updateNested('bride', 'fatherName', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">شناختی کارڈ دلہن</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="35201-xxxxxxx-x" 
+                  value={formData.bride.cnic}
+                  onChange={(e) => updateNested('bride', 'cnic', formatCNIC(e.target.value))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">رابطہ فون نمبر دلہن / سرپرست</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="0321-xxxxxxx" 
+                  value={formData.bride.phone}
+                  onChange={(e) => updateNested('bride', 'phone', formatPhone(e.target.value))}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۲: تاریخِ پیدائش، عمر سالوں میں، حیثیت، سکونت (4 کالمز) */}
+            <div className="form-row-4">
+              <div className="form-group">
+                <label className="form-label">
+                  <Calendar size={14} color="var(--gold-700)" />
+                  <span>تاریخِ پیدائش (کلنڈر - خانہ ۶)</span>
+                </label>
+                <input 
+                  type="date" 
+                  className="form-input font-num" 
+                  value={formData.bride.dob || ''}
+                  onChange={(e) => {
+                    const dob = e.target.value;
+                    updateNested('bride', 'dob', dob);
+                    const computed = calculateAgeFromDob(dob);
+                    if (computed) updateNested('bride', 'age', computed);
+                  }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label required">عمر سالوں میں (خانہ ۶)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="مثال: 25" 
+                  value={formData.bride.age}
+                  onChange={(e) => updateNested('bride', 'age', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">حیثیت دلہن (خانہ ۵)</label>
+                <select 
+                  className="form-select"
+                  value={formData.bride.maritalStatus}
+                  onChange={(e) => updateNested('bride', 'maritalStatus', e.target.value)}
+                >
+                  <option value="کنواری">کنواری</option>
+                  <option value="بیوہ">بیوہ</option>
+                  <option value="مطلقہ">مطلقہ</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">رہائشی پتہ / سکونت (خانہ ۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="اسلام پورہ، لاہور" 
+                  value={formData.bride.address}
+                  onChange={(e) => updateNested('bride', 'address', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* وکیلِ دلہن کا بلاک (خانہ ۷ و ۸) */}
+            <div style={{ marginTop: '14px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <strong style={{ fontSize: '0.92rem', color: 'var(--gold-700)' }}>
+                  وکیلِ دلہن و تقرری (خانہ نمبر ۷ و ۸):
+                </strong>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
+                    <input 
+                      type="radio" 
+                      name="brideVakilToggle"
+                      checked={!formData.bride?.hasVakil}
+                      onChange={() => updateNested('bride', 'hasVakil', false)}
+                    />
+                    <span style={{ fontWeight: !formData.bride?.hasVakil ? 700 : 400, color: '#15803d' }}>
+                      ✓ دلہن خود حاضر مجلس ہے (وکیل کی حاجت نہیں)
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
+                    <input 
+                      type="radio" 
+                      name="brideVakilToggle"
+                      checked={Boolean(formData.bride?.hasVakil)}
+                      onChange={() => updateNested('bride', 'hasVakil', true)}
+                    />
+                    <span style={{ fontWeight: formData.bride?.hasVakil ? 700 : 400 }}>
+                      وکیل کے ذریعے ایجاب و قبول
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {formData.bride?.hasVakil && (
+                <>
+                  <div className="form-row-4">
+                    <div className="form-group">
+                      <label className="form-label required">نام وکیلِ دلہن</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="محمد ارشد" 
+                        value={formData.bride?.vakilName || ''}
+                        onChange={(e) => updateNested('bride', 'vakilName', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">ولدیت وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="میاں خادم حسین" 
+                        value={formData.bride?.vakilFatherName || ''}
+                        onChange={(e) => updateNested('bride', 'vakilFatherName', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">شناختی کارڈ وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="35201-xxxxxxx-x" 
+                        value={formData.bride?.vakilCnic || ''}
+                        onChange={(e) => updateNested('bride', 'vakilCnic', formatCNIC(e.target.value))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">رابطہ فون وکیل</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="0322-xxxxxxx" 
+                        value={formData.bride?.vakilPhone || ''}
+                        onChange={(e) => updateNested('bride', 'vakilPhone', formatPhone(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label">سکونت / پتہ وکیلِ دلہن</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="اسلام پورہ، لاہور" 
+                        value={formData.bride?.vakilAddress || ''}
+                        onChange={(e) => updateNested('bride', 'vakilAddress', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">گواہانِ تقرری وکیلِ دلہن (خانہ ۸)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="سید زوار شاہ، کامران یوسف" 
+                        value={formData.bride?.vakilWitnesses || ''}
+                        onChange={(e) => updateNested('bride', 'vakilWitnesses', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* دلہن کی طرف سے شرعی گواہ (خانہ ۱۱ کا حصہ) */}
+            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--gold-700)', marginBottom: '8px' }}>
+                دلہن کی جانب سے شرعی گواہِ نکاح (خانہ ۱۱):
+              </div>
+              <div className="form-row-4">
+                <div className="form-group">
+                  <label className="form-label">نام شرعی گواہ دوم</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="سید زوار شاہ" 
+                    value={formData.witnessBride1?.name || ''}
+                    onChange={(e) => updateNested('witnessBride1', 'name', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">ولدیت گواہ</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="سید علی شاہ" 
+                    value={formData.witnessBride1?.fatherName || ''}
+                    onChange={(e) => updateNested('witnessBride1', 'fatherName', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">شناختی کارڈ گواہ</label>
+                  <input 
+                    type="text" 
+                    className="form-input font-num" 
+                    placeholder="35202-xxxxxxx-x" 
+                    value={formData.witnessBride1?.cnic || ''}
+                    onChange={(e) => updateNested('witnessBride1', 'cnic', formatCNIC(e.target.value))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">سکونت و پتہ گواہ</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="مسلم ٹاؤن، لاہور" 
+                    value={formData.witnessBride1?.address || ''}
+                    onChange={(e) => updateNested('witnessBride1', 'address', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* مرحلہ ۴: نکاح، حق مہر و شرائط (خانہ ۱۲ تا ۲۲)                  */}
+        {/* ============================================================ */}
+        {(viewMode === 'full_review' || activeStep === 4) && (
+          <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
+                ۴۔ حق مہر، طلائی زیورات و شرائطِ نکاح (خانہ ۱۳ تا ۲۲)
+              </h3>
+              <span className="badge badge-green">مرحلہ ۴ / ۵</span>
+            </div>
+
+            {/* سطر ۱: کل رقم مہر، لفظوں میں، سونا/جائیداد (3 کالمز) */}
+            <div className="form-row-3">
+              <div className="form-group">
+                <label className="form-label required">کل رقم حق مہر (خانہ ۱۳)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="500,000/- یا تفصیل" 
+                  value={formData.mehr?.totalAmount || ''}
+                  onChange={(e) => updateNested('mehr', 'totalAmount', e.target.value)}
+                  required
+                />
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                  {['/-', 'تقریباً', 'پانچ لاکھ روپے', 'دس لاکھ روپے'].map(t => (
+                    <button key={t} type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '2px 6px' }} onClick={() => updateNested('mehr', 'totalAmount', (formData.mehr?.totalAmount || '') + ' ' + t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">مہر کی رقم لفظوں میں (خانہ ۱۳)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="پانچ لاکھ روپے فقط" 
+                  value={formData.mehr?.totalAmountWords || ''}
+                  onChange={(e) => updateNested('mehr', 'totalAmountWords', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">طلائی زیورات / جائیداد (خانہ ۱۶)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="پانچ تولہ طلائی زیورات یا جائیداد" 
+                  value={formData.mehr?.goldWeight || ''}
+                  onChange={(e) => updateNested('mehr', 'goldWeight', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۲: مہر معجل، مہر مؤجل، موقع پر ادائیگی (3 کالمز) */}
+            <div className="form-row-3" style={{ marginTop: '12px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="form-group">
+                <label className="form-label">مہر معجل (نقد - خانہ ۱۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="کل معجل یا 200,000/-" 
+                  value={formData.mehr?.muajjal || ''}
+                  onChange={(e) => updateNested('mehr', 'muajjal', e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                  {['کل معجل', 'نصف معجل', 'موقع پر ادا'].map(t => (
+                    <button key={t} type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '2px 6px' }} onClick={() => updateNested('mehr', 'muajjal', t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">مہر مؤجل (واجب الادا - خانہ ۱۴)</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="کل غیر معجل یا 300,000/-" 
+                  value={formData.mehr?.muwajjal || ''}
+                  onChange={(e) => updateNested('mehr', 'muwajjal', e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                  {['کل غیر معجل', 'عند الطلب', 'صفر'].map(t => (
+                    <button key={t} type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '2px 6px' }} onClick={() => updateNested('mehr', 'muwajjal', t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">موقع پر ادا شدہ مہر (خانہ ۱۵)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="موقع پر ادا شدہ" 
+                  value={formData.mehr?.paidAtNikkah || ''}
+                  onChange={(e) => updateNested('mehr', 'paidAtNikkah', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۳: خصوصی شرائط و دستاویزات (2 کالمز) */}
+            <div className="form-row-2" style={{ marginTop: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">خصوصی شرائطِ نکاح (خانہ ۱۷)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="نان نفقہ اور رہائش کا بندوبست" 
+                  value={formData.mehr?.specialConditions || ''}
+                  onChange={(e) => updateNested('mehr', 'specialConditions', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">دستاویزات بابت مہر و نفقہ (خانہ ۲۰)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="رسید مہر الگ سے تیار کی گئی ہے۔" 
+                  value={formData.mehr?.dowerDocs || ''}
+                  onChange={(e) => updateNested('mehr', 'dowerDocs', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* سطر ۴: طلاق تفویض، پابندی، سابقہ بیوی (3 کالمز) */}
+            <div className="form-row-3" style={{ marginTop: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">تفویضِ طلاق (خانہ ۱۸)</label>
+                <select 
+                  className="form-select"
+                  value={formData.mehr?.delegatedDivorce}
+                  onChange={(e) => updateNested('mehr', 'delegatedDivorce', e.target.value)}
+                >
+                  <option value="نہیں">نہیں</option>
+                  <option value="ہاں">ہاں (تفویض کیا گیا)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">شوہر کے حقِ طلاق پر پابندی (خانہ ۱۹)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="کوئی نہیں" 
+                  value={formData.mehr?.husbandRestrictions || ''}
+                  onChange={(e) => updateNested('mehr', 'husbandRestrictions', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">سابقہ بیوی / ثالثی اجازت (خانہ ۲۱، ۲۲)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="نہیں / اجازت نمبر" 
+                  value={formData.mehr?.existingWives || ''}
+                  onChange={(e) => updateNested('mehr', 'existingWives', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* مرحلہ ۵: سکیننگ، دستخط و دستاویزات ہب (یکجا شدہ سنٹرل مقام)      */}
+        {/* ============================================================ */}
+        {(viewMode === 'full_review' || activeStep === 5) && (
+          <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '2px solid var(--primary-600)', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.15rem' }}>
+                  ۵۔ سکیننگ، دستخط و مہر جات ہب (Signatures & Documents Vault)
+                </h3>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  💡 تمام دستخط شفاف (Transparent PNG) محفوظ ہوتے ہیں تاکہ پرنٹ پر الفاظ یا لکیروں کے اوپر بھی صاف نظر آئیں۔
+                </div>
+              </div>
+              <span className="badge badge-green">مرحلہ ۵ / ۵ (حتمی)</span>
+            </div>
+
+            {/* بخش ۱: شناختی کارڈز سکیننگ (دولہا و دلہن) */}
+            <div style={{ marginBottom: '20px', background: 'var(--bg-card-subtle)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--primary-900)', marginBottom: '10px' }}>
+                الف: شناختی کارڈز (CNIC Front & Back):
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                {/* دولہا فرنٹ */}
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', background: 'var(--bg-card)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary-800)', marginBottom: '6px' }}>
+                    دولہا شناختی کارڈ (فرنٹ)
+                  </div>
+                  {formData.vaultDocuments?.groomCnicFront ? (
+                    <div>
+                      <img src={formData.vaultDocuments.groomCnicFront} alt="Groom CNIC Front" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', marginBottom: '6px' }} />
+                      <button type="button" className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '0.72rem' }} onClick={() => handleRemoveCnic('groomCnicFront')}>
+                        <Trash2 size={12} /> ہٹائیں
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn btn-secondary" style={{ width: '100%', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <Camera size={14} /> اپلوڈ فرنٹ
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleCnicUpload('groomCnicFront', e.target.files?.[0])} />
+                    </label>
+                  )}
+                </div>
+
+                {/* دولہا بیک */}
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', background: 'var(--bg-card)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary-800)', marginBottom: '6px' }}>
+                    دولہا شناختی کارڈ (بیک)
+                  </div>
+                  {formData.vaultDocuments?.groomCnicBack ? (
+                    <div>
+                      <img src={formData.vaultDocuments.groomCnicBack} alt="Groom CNIC Back" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', marginBottom: '6px' }} />
+                      <button type="button" className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '0.72rem' }} onClick={() => handleRemoveCnic('groomCnicBack')}>
+                        <Trash2 size={12} /> ہٹائیں
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn btn-secondary" style={{ width: '100%', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <Camera size={14} /> اپلوڈ بیک
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleCnicUpload('groomCnicBack', e.target.files?.[0])} />
+                    </label>
+                  )}
+                </div>
+
+                {/* دلہن فرنٹ */}
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', background: 'var(--bg-card)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gold-700)', marginBottom: '6px' }}>
+                    دلہن شناختی کارڈ (فرنٹ)
+                  </div>
+                  {formData.vaultDocuments?.brideCnicFront ? (
+                    <div>
+                      <img src={formData.vaultDocuments.brideCnicFront} alt="Bride CNIC Front" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', marginBottom: '6px' }} />
+                      <button type="button" className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '0.72rem' }} onClick={() => handleRemoveCnic('brideCnicFront')}>
+                        <Trash2 size={12} /> ہٹائیں
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn btn-secondary" style={{ width: '100%', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <Camera size={14} /> اپلوڈ فرنٹ
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleCnicUpload('brideCnicFront', e.target.files?.[0])} />
+                    </label>
+                  )}
+                </div>
+
+                {/* دلہن بیک */}
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', background: 'var(--bg-card)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gold-700)', marginBottom: '6px' }}>
+                    دلہن شناختی کارڈ (بیک)
+                  </div>
+                  {formData.vaultDocuments?.brideCnicBack ? (
+                    <div>
+                      <img src={formData.vaultDocuments.brideCnicBack} alt="Bride CNIC Back" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', marginBottom: '6px' }} />
+                      <button type="button" className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '0.72rem' }} onClick={() => handleRemoveCnic('brideCnicBack')}>
+                        <Trash2 size={12} /> ہٹائیں
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn btn-secondary" style={{ width: '100%', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <Camera size={14} /> اپلوڈ بیک
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleCnicUpload('brideCnicBack', e.target.files?.[0])} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* بخش ۲: تمام ۱۰ باضابطہ دستخطی خانے (خانہ ۲۵) مع آٹو ٹرانسپیرنسی */}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--primary-900)', marginBottom: '10px' }}>
+                ب: دستخط، انگوٹھا جات و مہر رجسٹرار (خانہ نمبر ۲۵ - کل ۱۰ خانے):
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                {SIGNATURE_SLOTS.map((slot) => {
+                  const img = formData.columnSignatures?.[slot.key];
+                  return (
+                    <div 
+                      key={slot.key}
+                      style={{
+                        border: '1.5px dashed var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        background: 'var(--bg-card)',
+                        textAlign: 'center',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '135px'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <strong style={{ fontSize: '0.82rem', color: 'var(--primary-800)' }}>{slot.title}</strong>
+                          <span className="badge badge-green" style={{ fontSize: '0.68rem' }}>{slot.badge}</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{slot.subtitle}</div>
+                      </div>
+
+                      {img ? (
+                        <div style={{ margin: '8px 0', background: 'rgba(0,0,0,0.02)', padding: '6px', borderRadius: '6px' }}>
+                          <img 
+                            src={img} 
+                            alt={slot.title} 
+                            style={{ maxHeight: '45px', maxWidth: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} 
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
+                            <button 
+                              type="button" 
+                              className="btn btn-danger" 
+                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                              onClick={() => handleRemoveSignature(slot.key)}
+                            >
+                              <Trash2 size={12} /> ہٹائیں
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ margin: '10px 0' }}>
+                          <label className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '6px 10px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <Camera size={14} />
+                            <span>اپلوڈ دستخط / مہر</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleSignatureUpload(slot.key, e.target.files?.[0])}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        {img ? '✓ شفاف پس منظر محفوظ' : '(خالی چھوڑنے پر پرنٹ بعد دستی دستخط)'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* نیچے نیویگیشن بٹنز (Previous, Next, Save)                     */}
+        {/* ============================================================ */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', padding: '14px', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            {viewMode === 'wizard' && activeStep > 1 && (
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => setActiveStep(activeStep - 1)}
+              >
+                <ArrowRight size={16} />
+                <span>پچھلا مرحلہ ({FORM_STEPS[activeStep - 2]?.title})</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {viewMode === 'wizard' && activeStep < 5 && (
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={() => setActiveStep(activeStep + 1)}
+              >
+                <span>اگلا مرحلہ ({FORM_STEPS[activeStep]?.title})</span>
+                <ArrowLeft size={16} />
+              </button>
+            )}
+
+            <button type="submit" className="btn btn-primary">
+              <Save size={18} />
+              <span>نکاح نامہ محفوظ کریں و ۴ پرت دیکھیں</span>
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   );
