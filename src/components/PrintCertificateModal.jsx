@@ -204,7 +204,18 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
                 ۸۔ گواہانِ تقرری وکیلِ دلہن:
               </strong>
               {record.bride?.hasVakil !== false && record.bride?.vakilName ? (
-                <div style={{ fontSize: '0.8rem' }}>{record.bride?.vakilWitnesses || '-'}</div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  {record.bride?.vakilWitness1?.name ? (
+                    <div>
+                      <div><strong>گواہ ۱:</strong> {record.bride.vakilWitness1.name} {record.bride.vakilWitness1.fatherName ? `ولد ${record.bride.vakilWitness1.fatherName}` : ''} {record.bride.vakilWitness1.cnic ? `(شناختی کارڈ: ${record.bride.vakilWitness1.cnic})` : ''}</div>
+                      {record.bride.vakilWitness2?.name && (
+                        <div style={{ marginTop: '2px' }}><strong>گواہ ۲:</strong> {record.bride.vakilWitness2.name} {record.bride.vakilWitness2.fatherName ? `ولد ${record.bride.vakilWitness2.fatherName}` : ''} {record.bride.vakilWitness2.cnic ? `(شناختی کارڈ: ${record.bride.vakilWitness2.cnic})` : ''}</div>
+                      )}
+                    </div>
+                  ) : (
+                    record.bride?.vakilWitnesses || '-'
+                  )}
+                </div>
               ) : (
                 <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>دلہن کی بنفسِ نفیس موجودگی کے باعث وکیل کی حاجت نہ تھی۔</div>
               )}
@@ -230,7 +241,18 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
                 ۱۰۔ گواہان تقرری وکیلِ دولہا:
               </strong>
               {record.groom?.hasVakil !== false && record.groom?.vakilName ? (
-                <div style={{ fontSize: '0.8rem' }}>{record.groom?.vakilWitnesses || '-'}</div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  {record.groom?.vakilWitness1?.name ? (
+                    <div>
+                      <div><strong>گواہ ۱:</strong> {record.groom.vakilWitness1.name} {record.groom.vakilWitness1.fatherName ? `ولد ${record.groom.vakilWitness1.fatherName}` : ''} {record.groom.vakilWitness1.cnic ? `(شناختی کارڈ: ${record.groom.vakilWitness1.cnic})` : ''}</div>
+                      {record.groom.vakilWitness2?.name && (
+                        <div style={{ marginTop: '2px' }}><strong>گواہ ۲:</strong> {record.groom.vakilWitness2.name} {record.groom.vakilWitness2.fatherName ? `ولد ${record.groom.vakilWitness2.fatherName}` : ''} {record.groom.vakilWitness2.cnic ? `(شناختی کارڈ: ${record.groom.vakilWitness2.cnic})` : ''}</div>
+                      )}
+                    </div>
+                  ) : (
+                    record.groom?.vakilWitnesses || '-'
+                  )}
+                </div>
               ) : (
                 <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>دولہا خود حاضر تھا، وکیل و گواہان کی ضرورت نہ تھی۔</div>
               )}
@@ -350,13 +372,15 @@ export default function PrintCertificateModal({ record, onClose, profile }) {
 
             <div className="cert-column-box" style={{ border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', background: '#ffffff' }}>
               <strong style={{ color: '#064e3b', display: 'block', marginBottom: '3px' }}>
-                ۲۴۔ فیس رجسٹریشن و قسم نکاح نامہ:
+                ۲۴۔ فیس رجسٹریشن جو ادا کی گئی ہو:
               </strong>
               <div>
-                فیس: <span className="font-num" style={{ fontWeight: 700, color: '#064e3b' }}>{formatMoneyOrText(record.fee?.agreedAmount || record.fee?.receivedAmount || 'حسب معمول')}</span>
-                <span className="badge badge-green" style={{ marginRight: '8px', fontSize: '0.72rem' }}>
-                  {record.registrationType === 'computerized' ? 'کمپیوٹرائزڈ' : 'دستی'}
-                </span>
+                فیس: <span className="font-num" style={{ fontWeight: 700, color: '#064e3b' }}>{formatMoneyOrText(record.fee?.agreedAmount || record.fee?.receivedAmount || 'حسبِ ضابطہ')}</span>
+                {record.fee?.receivedAmount && (
+                  <span style={{ marginRight: '8px', fontSize: '0.78rem', color: '#047857' }}>
+                    (وصول شدہ: <span className="font-num">{formatMoneyOrText(record.fee.receivedAmount)}</span>)
+                  </span>
+                )}
               </div>
             </div>
 

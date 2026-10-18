@@ -34,11 +34,11 @@ import { formatCNIC, formatPhone, getHijriDate } from '../utils/dateUtils';
 
 // پانچ منطقی، یکساں اور جامع مراحل (Uniform 5-Step Process)
 const FORM_STEPS = [
-  { id: 1, title: 'مقام و رجسٹریشن', sub: 'خانہ ۱، ۲۳، ۲۴' },
-  { id: 2, title: 'دولہا کے کوائف', sub: 'خانہ ۲، ۳، ۹، ۱۰ و گواہان' },
-  { id: 3, title: 'دلہن کے کوائف', sub: 'خانہ ۴، ۵، ۶، ۷، ۸ و گواہ' },
-  { id: 4, title: 'حق مہر و شرائط', sub: 'خانہ ۱۲ تا ۲۲' },
-  { id: 5, title: 'سکیننگ، دستخط و مہر جات', sub: 'CNIC کارڈز و تمام ۱۰ دستخط' }
+  { id: 1, title: 'مقام و رجسٹریشن', sub: 'کوائفِ اندراج و نکاح خواں' },
+  { id: 2, title: 'دولہا کے کوائف', sub: 'نام، ولدیت، عمر و وکیل' },
+  { id: 3, title: 'دلہن کے کوائف', sub: 'نام، ولدیت، عمر و وکیل' },
+  { id: 4, title: 'نکاح، گواہان و حق مہر', sub: 'شرعی گواہان، مہر و شرائط' },
+  { id: 5, title: 'سکیننگ، دستخط و مہر جات', sub: 'CNIC کارڈز و دستخط' }
 ];
 
 export default function NewNikkahForm({ 
@@ -55,11 +55,17 @@ export default function NewNikkahForm({
         hijriDate: initialData.hijriDate || getHijriDate(initialData.nikkahDate),
         groom: {
           hasVakil: initialData.groom?.hasVakil ?? Boolean(initialData.groom?.vakilName),
+          hasVakilWitnesses: initialData.groom?.hasVakilWitnesses ?? Boolean(initialData.groom?.vakilWitness1?.name || initialData.groom?.vakilWitnesses),
+          vakilWitness1: initialData.groom?.vakilWitness1 || { name: '', fatherName: '', cnic: '', address: '' },
+          vakilWitness2: initialData.groom?.vakilWitness2 || { name: '', fatherName: '', cnic: '', address: '' },
           dob: initialData.groom?.dob || '',
           ...initialData.groom
         },
         bride: {
           hasVakil: initialData.bride?.hasVakil ?? Boolean(initialData.bride?.vakilName),
+          hasVakilWitnesses: initialData.bride?.hasVakilWitnesses ?? Boolean(initialData.bride?.vakilWitness1?.name || initialData.bride?.vakilWitnesses),
+          vakilWitness1: initialData.bride?.vakilWitness1 || { name: '', fatherName: '', cnic: '', address: '' },
+          vakilWitness2: initialData.bride?.vakilWitness2 || { name: '', fatherName: '', cnic: '', address: '' },
           dob: initialData.bride?.dob || '',
           ...initialData.bride
         },
@@ -135,6 +141,9 @@ export default function NewNikkahForm({
         vakilCnic: '',
         vakilPhone: '',
         vakilAddress: '',
+        hasVakilWitnesses: false,
+        vakilWitness1: { name: '', fatherName: '', cnic: '', address: '' },
+        vakilWitness2: { name: '', fatherName: '', cnic: '', address: '' },
         vakilWitnesses: ''
       },
 
@@ -154,6 +163,9 @@ export default function NewNikkahForm({
         vakilCnic: '',
         vakilPhone: '',
         vakilAddress: '',
+        hasVakilWitnesses: false,
+        vakilWitness1: { name: '', fatherName: '', cnic: '', address: '' },
+        vakilWitness2: { name: '', fatherName: '', cnic: '', address: '' },
         vakilWitnesses: ''
       },
 
@@ -354,7 +366,7 @@ export default function NewNikkahForm({
     }));
   };
 
-  // خانہ نمبر ۲۵ کے تمام ۱۰ باضابطہ دستخطی خانے
+  // تمام ۱۰ باضابطہ دستخط و مہر جات کے سلاٹس
   const SIGNATURE_SLOTS = [
     {
       key: 'groomSignatureImg',
@@ -552,13 +564,13 @@ export default function NewNikkahForm({
         }}
       >
         {/* ============================================================ */}
-        {/* مرحلہ ۱: مقام، تاریخ و رجسٹریشن (خانہ ۱، ۲۳، ۲۴)              */}
+        {/* مرحلہ ۱: مقام، تاریخ و رجسٹریشن                              */}
         {/* ============================================================ */}
         {(viewMode === 'full_review' || activeStep === 1) && (
           <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
             <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
-                ۱۔ مقامِ انعقاد، تاریخ و رجسٹریشن کے کوائف (خانہ ۱، ۲۳، ۲۴)
+                ۱۔ مقامِ انعقاد، تاریخ و رجسٹریشن کے کوائف
               </h3>
               <span className="badge badge-green">مرحلہ ۱ / ۵</span>
             </div>
@@ -566,7 +578,7 @@ export default function NewNikkahForm({
             {/* سطر ۱: رجسٹریشن نمبر، یونین کونسل، وارڈ، ضلع و تحصیل (4 کالمز) */}
             <div className="form-row-4">
               <div className="form-group">
-                <label className="form-label required">رجسٹریشن / فارم نمبر (خانہ ۱)</label>
+                <label className="form-label required">رجسٹریشن / فارم نمبر</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -614,7 +626,7 @@ export default function NewNikkahForm({
             {/* سطر ۲: مقام انعقاد، تاریخ شمسی، تاریخ قمری، وقت (4 کالمز) */}
             <div className="form-row-4">
               <div className="form-group">
-                <label className="form-label">مقامِ انعقادِ نکاح (خانہ ۱)</label>
+                <label className="form-label">مقامِ انعقادِ نکاح</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -625,7 +637,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label required">تاریخِ نکاح (شمسی - خانہ ۱۲)</label>
+                <label className="form-label required">تاریخِ نکاح (شمسی)</label>
                 <input 
                   type="date" 
                   className="form-input font-num" 
@@ -640,7 +652,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">قمری / ہجری تاریخ (خانہ ۱۲)</label>
+                <label className="form-label">قمری / ہجری تاریخ</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -662,28 +674,27 @@ export default function NewNikkahForm({
               </div>
             </div>
 
-            {/* سطر ۳: فیس رجسٹریشن اور قسم نکاح نامہ (3 کالمز) */}
+            {/* سطر ۳: فیس رجسٹریشن (طے شدہ و موقع پر وصول شدہ) */}
             <div className="form-row-3" style={{ background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div className="form-group">
-                <label className="form-label">قسمِ سرٹیفکیٹ (خانہ ۲۴)</label>
-                <select 
-                  className="form-select"
-                  value={formData.registrationType}
-                  onChange={(e) => updateField('registrationType', e.target.value)}
-                >
-                  <option value="computerized">کمپیوٹرائزڈ نکاح نامہ (NRC)</option>
-                  <option value="manual_only">صرف دستی نکاح نامہ (Manual Only)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">فیس رجسٹریشن (خانہ ۲۴)</label>
+                <label className="form-label">طے شدہ رجسٹریشن فیس</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
                   placeholder="حسب معمول یا رقم مع /۔" 
                   value={formData.fee?.agreedAmount || ''}
                   onChange={(e) => updateNested('fee', 'agreedAmount', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">موقع پر وصول شدہ رقم</label>
+                <input 
+                  type="text" 
+                  className="form-input font-num" 
+                  placeholder="وصول شدہ رقم (مثلاً 5000)" 
+                  value={formData.fee?.receivedAmount || ''}
+                  onChange={(e) => updateNested('fee', 'receivedAmount', e.target.value)}
                 />
               </div>
 
@@ -705,11 +716,11 @@ export default function NewNikkahForm({
               </div>
             </div>
 
-            {/* سطر ۴: نکاح خواں اور رجسٹرار کوائف (خانہ ۲۳) */}
+            {/* سطر ۴: نکاح خواں اور رجسٹرار کوائف */}
             <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
               <div className="form-row-2">
                 <div className="form-group">
-                  <label className="form-label">نکاح کس نے پڑھایا؟ (خانہ ۲۳)</label>
+                  <label className="form-label">نکاح کس نے پڑھایا؟</label>
                   <select 
                     className="form-select"
                     value={formData.officiantType}
@@ -780,13 +791,13 @@ export default function NewNikkahForm({
         )}
 
         {/* ============================================================ */}
-        {/* مرحلہ ۲: دولہا کے کوائف (Groom - خانہ ۲، ۳، ۹، ۱۰ و گواہان)      */}
+        {/* مرحلہ ۲: دولہا کے کوائف (Groom Details)                      */}
         {/* ============================================================ */}
         {(viewMode === 'full_review' || activeStep === 2) && (
           <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--primary-400)', borderRadius: '12px', padding: '18px' }}>
             <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
-                ۲۔ دولہا کے کوائف (خانہ ۲، ۳، ۹، ۱۰ اور گواہان)
+                ۲۔ دولہا کے کوائف
               </h3>
               <span className="badge badge-green">مرحلہ ۲ / ۵</span>
             </div>
@@ -794,7 +805,7 @@ export default function NewNikkahForm({
             {/* سطر ۱: دولہا بنیادی معلومات (4 کالمز میں سمٹی ہوئی) */}
             <div className="form-row-4">
               <div className="form-group">
-                <label className="form-label required">نام دولہا (خانہ ۲)</label>
+                <label className="form-label required">نام دولہا</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -806,7 +817,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label required">ولدیت دولہا (خانہ ۲)</label>
+                <label className="form-label required">ولدیت دولہا</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -845,7 +856,7 @@ export default function NewNikkahForm({
               <div className="form-group">
                 <label className="form-label">
                   <Calendar size={14} color="var(--primary-700)" />
-                  <span>تاریخِ پیدائش (کلنڈر - خانہ ۳)</span>
+                  <span>تاریخِ پیدائش (کلنڈر)</span>
                 </label>
                 <input 
                   type="date" 
@@ -861,7 +872,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label required">عمر سالوں میں (خانہ ۳)</label>
+                <label className="form-label required">عمر سالوں میں</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -886,7 +897,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">رہائشی پتہ / سکونت (خانہ ۲)</label>
+                <label className="form-label">رہائشی پتہ / سکونت</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -897,11 +908,11 @@ export default function NewNikkahForm({
               </div>
             </div>
 
-            {/* وکیلِ دولہا کا بلاک (خانہ ۹ و ۱۰) */}
+            {/* وکیلِ دولہا کا بلاک */}
             <div style={{ marginTop: '14px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                 <strong style={{ fontSize: '0.92rem', color: 'var(--primary-800)' }}>
-                  وکیلِ دولہا و تقرری (خانہ نمبر ۹ و ۱۰):
+                  وکیلِ دولہا و تقرری:
                 </strong>
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
@@ -973,7 +984,7 @@ export default function NewNikkahForm({
                       />
                     </div>
                   </div>
-                  <div className="form-row-2">
+                  <div className="form-row-1">
                     <div className="form-group">
                       <label className="form-label">سکونت / پتہ وکیلِ دولہا</label>
                       <input 
@@ -984,80 +995,154 @@ export default function NewNikkahForm({
                         onChange={(e) => updateNested('groom', 'vakilAddress', e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">گواہانِ تقرری وکیلِ دولہا (خانہ ۱۰)</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        placeholder="محمد بلال ولد رشید، کاشف ولد انور" 
-                        value={formData.groom?.vakilWitnesses || ''}
-                        onChange={(e) => updateNested('groom', 'vakilWitnesses', e.target.value)}
-                      />
+                  </div>
+
+                  {/* وکیل مقرر کرنے کے گواہان (اختیاری سیکشن) */}
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--primary-800)' }}>
+                        <input 
+                          type="checkbox"
+                          checked={Boolean(formData.groom?.hasVakilWitnesses)}
+                          onChange={(e) => updateNested('groom', 'hasVakilWitnesses', e.target.checked)}
+                        />
+                        <span>کیا وکیل مقرر کرنے کے گواہان درج کرنے ہیں؟ (اختیاری)</span>
+                      </label>
                     </div>
+
+                    {formData.groom?.hasVakilWitnesses && (
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '6px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                          دولہا کی جانب سے وکیل مقرر کیے جانے کے دو گواہان:
+                        </div>
+                        {/* گواہ ۱ برائے تقرر وکیل */}
+                        <div className="form-row-4" style={{ marginBottom: '8px' }}>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>نام گواہ اول تقررِ وکیل</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="محمد بلال"
+                              value={formData.groom?.vakilWitness1?.name || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness1 || {}), name: e.target.value };
+                                updateNested('groom', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>ولدیت</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="رشید احمد"
+                              value={formData.groom?.vakilWitness1?.fatherName || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness1 || {}), fatherName: e.target.value };
+                                updateNested('groom', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>شناختی کارڈ</label>
+                            <input 
+                              type="text" 
+                              className="form-input font-num" 
+                              placeholder="35201-xxxxxxx-x"
+                              value={formData.groom?.vakilWitness1?.cnic || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness1 || {}), cnic: formatCNIC(e.target.value) };
+                                updateNested('groom', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>سکونت / پتہ</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="لاہور"
+                              value={formData.groom?.vakilWitness1?.address || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness1 || {}), address: e.target.value };
+                                updateNested('groom', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* گواہ ۲ برائے تقرر وکیل */}
+                        <div className="form-row-4">
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>نام گواہ دوم تقررِ وکیل</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="کاشف علی"
+                              value={formData.groom?.vakilWitness2?.name || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness2 || {}), name: e.target.value };
+                                updateNested('groom', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>ولدیت</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="انور علی"
+                              value={formData.groom?.vakilWitness2?.fatherName || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness2 || {}), fatherName: e.target.value };
+                                updateNested('groom', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>شناختی کارڈ</label>
+                            <input 
+                              type="text" 
+                              className="form-input font-num" 
+                              placeholder="35201-xxxxxxx-x"
+                              value={formData.groom?.vakilWitness2?.cnic || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness2 || {}), cnic: formatCNIC(e.target.value) };
+                                updateNested('groom', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>سکونت / پتہ</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="لاہور"
+                              value={formData.groom?.vakilWitness2?.address || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.groom?.vakilWitness2 || {}), address: e.target.value };
+                                updateNested('groom', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
-            </div>
-
-            {/* دولہا کی طرف سے نکاح کے گواہان (خانہ ۱۱ کا حصہ) */}
-            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--primary-800)', marginBottom: '8px' }}>
-                دولہا کی جانب سے شرعی گواہانِ نکاح (خانہ ۱۱):
-              </div>
-              <div className="form-row-4">
-                <div className="form-group">
-                  <label className="form-label">نام شرعی گواہ اول</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="عبدالرحمٰن بٹ" 
-                    value={formData.witnessGroom1?.name || ''}
-                    onChange={(e) => updateNested('witnessGroom1', 'name', e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">ولدیت گواہ اول</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="محمد اسلم بٹ" 
-                    value={formData.witnessGroom1?.fatherName || ''}
-                    onChange={(e) => updateNested('witnessGroom1', 'fatherName', e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">شناختی کارڈ گواہ اول</label>
-                  <input 
-                    type="text" 
-                    className="form-input font-num" 
-                    placeholder="35202-xxxxxxx-x" 
-                    value={formData.witnessGroom1?.cnic || ''}
-                    onChange={(e) => updateNested('witnessGroom1', 'cnic', formatCNIC(e.target.value))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">سکونت و پتہ گواہ اول</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="ماڈل ٹاؤن، لاہور" 
-                    value={formData.witnessGroom1?.address || ''}
-                    onChange={(e) => updateNested('witnessGroom1', 'address', e.target.value)}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* ============================================================ */}
-        {/* مرحلہ ۳: دلہن کے کوائف (Bride - خانہ ۴، ۵، ۶، ۷، ۸ و گواہ)       */}
+        {/* مرحلہ ۳: دلہن کے کوائف (Bride Details)                       */}
         {/* ============================================================ */}
         {(viewMode === 'full_review' || activeStep === 3) && (
           <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--gold-400)', borderRadius: '12px', padding: '18px' }}>
             <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'var(--gold-700)', margin: 0, fontSize: '1.1rem' }}>
-                ۳۔ دلہن کے کوائف (خانہ ۴، ۵، ۶، ۷، ۸ اور گواہان)
+                ۳۔ دلہن کے کوائف
               </h3>
               <span className="badge badge-gold">مرحلہ ۳ / ۵</span>
             </div>
@@ -1065,7 +1150,7 @@ export default function NewNikkahForm({
             {/* سطر ۱: دلہن بنیادی معلومات (4 کالمز میں سمٹی ہوئی) */}
             <div className="form-row-4">
               <div className="form-group">
-                <label className="form-label required">نام دلہن (خانہ ۴)</label>
+                <label className="form-label required">نام دلہن</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1077,7 +1162,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label required">ولدیت دلہن (خانہ ۴)</label>
+                <label className="form-label required">ولدیت دلہن</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1116,7 +1201,7 @@ export default function NewNikkahForm({
               <div className="form-group">
                 <label className="form-label">
                   <Calendar size={14} color="var(--gold-700)" />
-                  <span>تاریخِ پیدائش (کلنڈر - خانہ ۶)</span>
+                  <span>تاریخِ پیدائش (کلنڈر)</span>
                 </label>
                 <input 
                   type="date" 
@@ -1132,7 +1217,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label required">عمر سالوں میں (خانہ ۶)</label>
+                <label className="form-label required">عمر سالوں میں</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -1143,20 +1228,20 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">حیثیت دلہن (خانہ ۵)</label>
+                <label className="form-label">حیثیت دلہن (باکرہ / بیوہ / مطلقہ)</label>
                 <select 
                   className="form-select"
                   value={formData.bride.maritalStatus}
                   onChange={(e) => updateNested('bride', 'maritalStatus', e.target.value)}
                 >
-                  <option value="کنواری">کنواری</option>
-                  <option value="بیوہ">بیوہ</option>
-                  <option value="مطلقہ">مطلقہ</option>
+                  <option value="کنواری">کنواری (باکرہ)</option>
+                  <option value="بیوہ">بیوہ (ثیبہ)</option>
+                  <option value="مطلقہ">مطلقہ (ثیبہ)</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">رہائشی پتہ / سکونت (خانہ ۴)</label>
+                <label className="form-label">رہائشی پتہ / سکونت</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1167,11 +1252,11 @@ export default function NewNikkahForm({
               </div>
             </div>
 
-            {/* وکیلِ دلہن کا بلاک (خانہ ۷ و ۸) */}
+            {/* وکیلِ دلہن کا بلاک */}
             <div style={{ marginTop: '14px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                 <strong style={{ fontSize: '0.92rem', color: 'var(--gold-700)' }}>
-                  وکیلِ دلہن و تقرری (خانہ نمبر ۷ و ۸):
+                  وکیلِ دلہن و تقرری:
                 </strong>
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.84rem' }}>
@@ -1243,7 +1328,7 @@ export default function NewNikkahForm({
                       />
                     </div>
                   </div>
-                  <div className="form-row-2">
+                  <div className="form-row-1">
                     <div className="form-group">
                       <label className="form-label">سکونت / پتہ وکیلِ دلہن</label>
                       <input 
@@ -1254,88 +1339,310 @@ export default function NewNikkahForm({
                         onChange={(e) => updateNested('bride', 'vakilAddress', e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">گواہانِ تقرری وکیلِ دلہن (خانہ ۸)</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        placeholder="سید زوار شاہ، کامران یوسف" 
-                        value={formData.bride?.vakilWitnesses || ''}
-                        onChange={(e) => updateNested('bride', 'vakilWitnesses', e.target.value)}
-                      />
+                  </div>
+
+                  {/* وکیل مقرر کرنے کے گواہان (اختیاری سیکشن) */}
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--gold-700)' }}>
+                        <input 
+                          type="checkbox"
+                          checked={Boolean(formData.bride?.hasVakilWitnesses)}
+                          onChange={(e) => updateNested('bride', 'hasVakilWitnesses', e.target.checked)}
+                        />
+                        <span>کیا وکیل مقرر کرنے کے گواہان درج کرنے ہیں؟ (اختیاری)</span>
+                      </label>
                     </div>
+
+                    {formData.bride?.hasVakilWitnesses && (
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '6px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                          دلہن کی جانب سے وکیل مقرر کیے جانے کے دو گواہان:
+                        </div>
+                        {/* گواہ ۱ برائے تقرر وکیل */}
+                        <div className="form-row-4" style={{ marginBottom: '8px' }}>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>نام گواہ اول تقررِ وکیل</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="سید زوار شاہ"
+                              value={formData.bride?.vakilWitness1?.name || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness1 || {}), name: e.target.value };
+                                updateNested('bride', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>ولدیت</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="سید علی شاہ"
+                              value={formData.bride?.vakilWitness1?.fatherName || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness1 || {}), fatherName: e.target.value };
+                                updateNested('bride', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>شناختی کارڈ</label>
+                            <input 
+                              type="text" 
+                              className="form-input font-num" 
+                              placeholder="35202-xxxxxxx-x"
+                              value={formData.bride?.vakilWitness1?.cnic || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness1 || {}), cnic: formatCNIC(e.target.value) };
+                                updateNested('bride', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>سکونت / پتہ</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="لاہور"
+                              value={formData.bride?.vakilWitness1?.address || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness1 || {}), address: e.target.value };
+                                updateNested('bride', 'vakilWitness1', w);
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* گواہ ۲ برائے تقرر وکیل */}
+                        <div className="form-row-4">
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>نام گواہ دوم تقررِ وکیل</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="کامران یوسف"
+                              value={formData.bride?.vakilWitness2?.name || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness2 || {}), name: e.target.value };
+                                updateNested('bride', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>ولدیت</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="محمد یوسف"
+                              value={formData.bride?.vakilWitness2?.fatherName || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness2 || {}), fatherName: e.target.value };
+                                updateNested('bride', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>شناختی کارڈ</label>
+                            <input 
+                              type="text" 
+                              className="form-input font-num" 
+                              placeholder="35201-xxxxxxx-x"
+                              value={formData.bride?.vakilWitness2?.cnic || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness2 || {}), cnic: formatCNIC(e.target.value) };
+                                updateNested('bride', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontSize: '0.78rem' }}>سکونت / پتہ</label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="لاہور"
+                              value={formData.bride?.vakilWitness2?.address || ''}
+                              onChange={(e) => {
+                                const w = { ...(formData.bride?.vakilWitness2 || {}), address: e.target.value };
+                                updateNested('bride', 'vakilWitness2', w);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
-            </div>
-
-            {/* دلہن کی طرف سے شرعی گواہ (خانہ ۱۱ کا حصہ) */}
-            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border-color)' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--gold-700)', marginBottom: '8px' }}>
-                دلہن کی جانب سے شرعی گواہِ نکاح (خانہ ۱۱):
-              </div>
-              <div className="form-row-4">
-                <div className="form-group">
-                  <label className="form-label">نام شرعی گواہ دوم</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="سید زوار شاہ" 
-                    value={formData.witnessBride1?.name || ''}
-                    onChange={(e) => updateNested('witnessBride1', 'name', e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">ولدیت گواہ</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="سید علی شاہ" 
-                    value={formData.witnessBride1?.fatherName || ''}
-                    onChange={(e) => updateNested('witnessBride1', 'fatherName', e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">شناختی کارڈ گواہ</label>
-                  <input 
-                    type="text" 
-                    className="form-input font-num" 
-                    placeholder="35202-xxxxxxx-x" 
-                    value={formData.witnessBride1?.cnic || ''}
-                    onChange={(e) => updateNested('witnessBride1', 'cnic', formatCNIC(e.target.value))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">سکونت و پتہ گواہ</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="مسلم ٹاؤن، لاہور" 
-                    value={formData.witnessBride1?.address || ''}
-                    onChange={(e) => updateNested('witnessBride1', 'address', e.target.value)}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* ============================================================ */}
-        {/* مرحلہ ۴: نکاح، حق مہر و شرائط (خانہ ۱۲ تا ۲۲)                  */}
+        {/* مرحلہ ۴: نکاح، شرعی گواہان، حق مہر و شرائط                    */}
         {/* ============================================================ */}
         {(viewMode === 'full_review' || activeStep === 4) && (
           <div style={{ marginBottom: '24px', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
             <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'var(--primary-800)', margin: 0, fontSize: '1.1rem' }}>
-                ۴۔ حق مہر، طلائی زیورات و شرائطِ نکاح (خانہ ۱۳ تا ۲۲)
+                ۴۔ شرعی گواہان، حق مہر و شرائطِ نکاح
               </h3>
               <span className="badge badge-green">مرحلہ ۴ / ۵</span>
+            </div>
+
+            {/* بخش ۱: شرعی گواہانِ نکاح (۲ معتبر گواہ) */}
+            <div style={{ marginBottom: '20px', background: 'var(--bg-card-subtle)', padding: '16px', borderRadius: '10px', border: '1.5px solid var(--primary-300)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: 'var(--primary-900)', fontSize: '1.02rem', fontWeight: 800 }}>
+                    شرعی گواہانِ نکاح (۲ معتبر گواہ):
+                  </h4>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    عقدِ نکاح کے شرعی نفاذ کے لیے دو عاقل و بالغ گواہان (دولہا یا دلہن کی طرف سے مخصوص ہونا ضروری نہیں)
+                  </div>
+                </div>
+                <span className="badge badge-green">۲ شرعی گواہ لازمی</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                {/* شرعی گواہ اول */}
+                <div style={{ background: 'var(--bg-card)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--primary-800)', marginBottom: '8px' }}>
+                    ۱۔ شرعی گواہ اول:
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label required">نام گواہ اول</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="عبدالرحمٰن بٹ" 
+                        value={formData.witnessGroom1?.name || ''}
+                        onChange={(e) => updateNested('witnessGroom1', 'name', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label required">ولدیت گواہ اول</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="محمد اسلم بٹ" 
+                        value={formData.witnessGroom1?.fatherName || ''}
+                        onChange={(e) => updateNested('witnessGroom1', 'fatherName', e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label">شناختی کارڈ گواہ اول</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="35202-xxxxxxx-x" 
+                        value={formData.witnessGroom1?.cnic || ''}
+                        onChange={(e) => updateNested('witnessGroom1', 'cnic', formatCNIC(e.target.value))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">رابطہ فون نمبر</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="0300-xxxxxxx" 
+                        value={formData.witnessGroom1?.phone || ''}
+                        onChange={(e) => updateNested('witnessGroom1', 'phone', formatPhone(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">سکونت و پتہ گواہ اول</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="ماڈل ٹاؤن، لاہور" 
+                      value={formData.witnessGroom1?.address || ''}
+                      onChange={(e) => updateNested('witnessGroom1', 'address', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* شرعی گواہ دوم */}
+                <div style={{ background: 'var(--bg-card)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--primary-800)', marginBottom: '8px' }}>
+                    ۲۔ شرعی گواہ دوم:
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label required">نام گواہ دوم</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="سید زوار شاہ" 
+                        value={formData.witnessBride1?.name || ''}
+                        onChange={(e) => updateNested('witnessBride1', 'name', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label required">ولدیت گواہ دوم</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="سید علی شاہ" 
+                        value={formData.witnessBride1?.fatherName || ''}
+                        onChange={(e) => updateNested('witnessBride1', 'fatherName', e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label">شناختی کارڈ گواہ دوم</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="35202-xxxxxxx-x" 
+                        value={formData.witnessBride1?.cnic || ''}
+                        onChange={(e) => updateNested('witnessBride1', 'cnic', formatCNIC(e.target.value))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">رابطہ فون نمبر</label>
+                      <input 
+                        type="text" 
+                        className="form-input font-num" 
+                        placeholder="0300-xxxxxxx" 
+                        value={formData.witnessBride1?.phone || ''}
+                        onChange={(e) => updateNested('witnessBride1', 'phone', formatPhone(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">سکونت و پتہ گواہ دوم</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="مسلم ٹاؤن، لاہور" 
+                      value={formData.witnessBride1?.address || ''}
+                      onChange={(e) => updateNested('witnessBride1', 'address', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* بخش ۲: حق مہر، طلائی زیورات و شرائط */}
+            <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--primary-900)', marginBottom: '10px' }}>
+              حق مہر و شرائطِ عقد:
             </div>
 
             {/* سطر ۱: کل رقم مہر، لفظوں میں، سونا/جائیداد (3 کالمز) */}
             <div className="form-row-3">
               <div className="form-group">
-                <label className="form-label required">کل رقم حق مہر (خانہ ۱۳)</label>
+                <label className="form-label required">کل رقم حق مہر</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -1354,7 +1661,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">مہر کی رقم لفظوں میں (خانہ ۱۳)</label>
+                <label className="form-label">مہر کی رقم لفظوں میں</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1365,7 +1672,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">طلائی زیورات / جائیداد (خانہ ۱۶)</label>
+                <label className="form-label">طلائی زیورات / جائیداد و دیگر مہر</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1379,7 +1686,7 @@ export default function NewNikkahForm({
             {/* سطر ۲: مہر معجل، مہر مؤجل، موقع پر ادائیگی (3 کالمز) */}
             <div className="form-row-3" style={{ marginTop: '12px', background: 'var(--bg-card-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div className="form-group">
-                <label className="form-label">مہر معجل (نقد - خانہ ۱۴)</label>
+                <label className="form-label">مہر معجل (نقد فوری ادا شدہ)</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -1397,7 +1704,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">مہر مؤجل (واجب الادا - خانہ ۱۴)</label>
+                <label className="form-label">مہر مؤجل (واجب الادا عند الطلب)</label>
                 <input 
                   type="text" 
                   className="form-input font-num" 
@@ -1415,7 +1722,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">موقع پر ادا شدہ مہر (خانہ ۱۵)</label>
+                <label className="form-label">موقع پر ادا شدہ مہر</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1429,7 +1736,7 @@ export default function NewNikkahForm({
             {/* سطر ۳: خصوصی شرائط و دستاویزات (2 کالمز) */}
             <div className="form-row-2" style={{ marginTop: '12px' }}>
               <div className="form-group">
-                <label className="form-label">خصوصی شرائطِ نکاح (خانہ ۱۷)</label>
+                <label className="form-label">خصوصی شرائطِ نکاح</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1440,7 +1747,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">دستاویزات بابت مہر و نفقہ (خانہ ۲۰)</label>
+                <label className="form-label">دستاویزات بابت مہر و نفقہ</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1454,7 +1761,7 @@ export default function NewNikkahForm({
             {/* سطر ۴: طلاق تفویض، پابندی، سابقہ بیوی (3 کالمز) */}
             <div className="form-row-3" style={{ marginTop: '12px' }}>
               <div className="form-group">
-                <label className="form-label">تفویضِ طلاق (خانہ ۱۸)</label>
+                <label className="form-label">تفویضِ طلاق (خاوند نے بیوی کو حق دیا؟)</label>
                 <select 
                   className="form-select"
                   value={formData.mehr?.delegatedDivorce}
@@ -1466,7 +1773,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">شوہر کے حقِ طلاق پر پابندی (خانہ ۱۹)</label>
+                <label className="form-label">شوہر کے حقِ طلاق پر کوئی شرائط؟</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1477,7 +1784,7 @@ export default function NewNikkahForm({
               </div>
 
               <div className="form-group">
-                <label className="form-label">سابقہ بیوی / ثالثی اجازت (خانہ ۲۱، ۲۲)</label>
+                <label className="form-label">سابقہ بیوی / ثالثی کونسل کی اجازت</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1596,10 +1903,10 @@ export default function NewNikkahForm({
               </div>
             </div>
 
-            {/* بخش ۲: تمام ۱۰ باضابطہ دستخطی خانے (خانہ ۲۵) مع آٹو ٹرانسپیرنسی */}
+            {/* بخش ۲: تمام ۱۰ باضابطہ دستخط و مہر جات مع آٹو ٹرانسپیرنسی */}
             <div>
               <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--primary-900)', marginBottom: '10px' }}>
-                ب: دستخط، انگوٹھا جات و مہر رجسٹرار (خانہ نمبر ۲۵ - کل ۱۰ خانے):
+                ب: دستخط، انگوٹھا جات و مہر رجسٹرار (کل ۱۰ خانے):
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>

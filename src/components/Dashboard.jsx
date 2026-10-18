@@ -34,7 +34,10 @@ export default function Dashboard({
   // شماریات کا حساب
   const totalCount = records.length;
   const thisMonthCount = records.filter(r => (r.nikkahDate || '').startsWith(currentMonth)).length;
-  const computerizedCount = records.filter(r => r.registrationType === 'computerized').length;
+  // کمپیوٹرائزڈ نکاح نامہ موصول / تیار
+  const computerizedReadyCount = records.filter(r => r.tracking?.isComputerizedReceived || r.vaultDocuments?.computerizedNikkahImg).length;
+  // یو سی میں جمع ہونا باقی
+  const pendingUcCount = records.filter(r => !r.tracking?.isUcSubmitted).length;
   const guestOfficiantCount = records.filter(r => r.officiantType === 'guest').length;
   const undeliveredCount = records.filter(r => !r.delivery?.isDelivered).length;
 
@@ -101,14 +104,27 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* کمپیوٹرائزڈ نکاح نامے */}
+        {/* کمپیوٹرائزڈ نکاح نامے تیار/موصول */}
         <div className="stat-card stat-card-gold">
           <div className="stat-card-info">
-            <h4>کمپیوٹرائزڈ نکاح نامے</h4>
-            <div className="stat-value font-num">{computerizedCount}</div>
+            <h4>کمپیوٹرائزڈ تیار / موصول</h4>
+            <div className="stat-value font-num" style={{ color: '#047857' }}>{computerizedReadyCount}</div>
           </div>
           <div className="stat-card-icon" style={{ background: 'var(--gold-100)', color: 'var(--gold-700)' }}>
             <CalendarCheck size={24} />
+          </div>
+        </div>
+
+        {/* یو سی جمع ہونا باقی */}
+        <div className="stat-card" style={{ borderRight: '4px solid #f59e0b' }}>
+          <div className="stat-card-info">
+            <h4>یو سی جمع کرانا باقی</h4>
+            <div className="stat-value font-num" style={{ color: pendingUcCount > 0 ? '#b45309' : '#059669' }}>
+              {pendingUcCount}
+            </div>
+          </div>
+          <div className="stat-card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#b45309' }}>
+            <Building size={24} />
           </div>
         </div>
 
@@ -191,7 +207,7 @@ export default function Dashboard({
                   <th>فولڈر ٹائٹل / دولہا و دلہن</th>
                   <th>تاریخِ نکاح</th>
                   <th>نکاح خواں</th>
-                  <th>قسم</th>
+                  <th>یو سی و کمپیوٹرائزڈ پراسیسنگ</th>
                   <th>وصولی کیفیت</th>
                   <th style={{ textAlign: 'center' }}>اقدامات</th>
                 </tr>
@@ -230,9 +246,27 @@ export default function Dashboard({
                       </td>
 
                       <td>
-                        <span className={`badge ${r.registrationType === 'computerized' ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: '0.74rem' }}>
-                          {r.registrationType === 'computerized' ? 'کمپیوٹرائزڈ' : 'دستی'}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          {r.tracking?.isUcSubmitted ? (
+                            <span className="badge badge-green" style={{ fontSize: '0.70rem' }}>
+                              ✓ یو سی جمع شدہ
+                            </span>
+                          ) : (
+                            <span className="badge badge-yellow" style={{ fontSize: '0.70rem' }}>
+                              ⏳ یو سی میں جمع ہونا باقی
+                            </span>
+                          )}
+
+                          {r.tracking?.isComputerizedReceived || r.vaultDocuments?.computerizedNikkahImg ? (
+                            <span className="badge badge-blue" style={{ fontSize: '0.70rem' }}>
+                              ★ کمپیوٹرائزڈ تیار / موصول
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ fontSize: '0.70rem', background: '#f1f5f9', color: '#64748b' }}>
+                              ⏳ کمپیوٹرائزڈ منتظر
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td>

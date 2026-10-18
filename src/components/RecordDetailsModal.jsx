@@ -25,10 +25,23 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
   if (!record) return null;
 
   const [activeImagePreview, setActiveImagePreview] = useState(null);
+  
+  // ترسیل فارم اسٹیٹ
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [deliveryName, setDeliveryName] = useState(record.groom?.name || '');
   const [deliveryPhone, setDeliveryPhone] = useState(record.groom?.phone || '');
   const [deliveryNotes, setDeliveryNotes] = useState('نکاح نامہ حوالے کر دیا گیا ہے۔');
+
+  // یونین کونسل جمع اسٹیٹ
+  const [showUcForm, setShowUcForm] = useState(false);
+  const [ucDiaryNo, setUcDiaryNo] = useState(record.tracking?.ucDiaryNo || '');
+  const [ucSubmissionDate, setUcSubmissionDate] = useState(record.tracking?.ucSubmissionDate || new Date().toISOString().slice(0, 10));
+
+  // کمپیوٹرائزڈ نکاح نامہ اسٹیٹ
+  const [showNrcForm, setShowNrcForm] = useState(false);
+  const [nrcCertificateNo, setNrcCertificateNo] = useState(record.tracking?.nrcCertificateNo || '');
+  const [nrcReceivedDate, setNrcReceivedDate] = useState(record.tracking?.nrcReceivedDate || new Date().toISOString().slice(0, 10));
+  const [nrcImg, setNrcImg] = useState(null);
 
   const agreedNum = parseInt(record.fee?.agreedAmount || '0', 10);
   const receivedNum = parseInt(record.fee?.receivedAmount || '0', 10);
@@ -43,6 +56,24 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
       return `${Number(str).toLocaleString()} روپے`;
     }
     return str;
+  };
+
+  // یونین کونسل میں جمع شدہ مارک کرنا
+  const handleMarkUcSubmitted = () => {
+    const updated = storageService.markUcSubmitted(record.id, ucDiaryNo, ucSubmissionDate);
+    if (updated) {
+      setShowUcForm(false);
+      if (onRecordUpdated) onRecordUpdated(updated);
+    }
+  };
+
+  // کمپیوٹرائزڈ نامہ موصول مارک کرنا
+  const handleMarkNrcReceived = () => {
+    const updated = storageService.markComputerizedReceived(record.id, nrcCertificateNo, nrcReceivedDate, nrcImg);
+    if (updated) {
+      setShowNrcForm(false);
+      if (onRecordUpdated) onRecordUpdated(updated);
+    }
   };
 
   // فوری ترسیل کی تصدیق کرنا
@@ -75,17 +106,15 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                 <span className="badge badge-green font-num">فارم: {record.serialNo}</span>
-                <span className={`badge ${record.registrationType === 'computerized' ? 'badge-blue' : 'badge-gold'}`}>
-                  {record.registrationType === 'computerized' ? 'کمپیوٹرائزڈ نکاح نامہ' : 'صرف دستی نکاح نامہ'}
+                <span className={`badge ${record.tracking?.isUcSubmitted ? 'badge-green' : 'badge-gold'}`}>
+                  {record.tracking?.isUcSubmitted ? '✓ یو سی جمع شدہ' : '⏳ یو سی جمع ہونا باقی'}
+                </span>
+                <span className={`badge ${record.tracking?.isComputerizedReceived ? 'badge-blue' : 'badge-gold'}`}>
+                  {record.tracking?.isComputerizedReceived ? '✓ کمپیوٹرائزڈ NRC موصول' : '⏳ کمپیوٹرائزڈ منتظر'}
                 </span>
                 <span className={`badge ${record.delivery?.isDelivered ? 'badge-green' : 'badge-red'}`}>
                   {record.delivery?.isDelivered ? '✓ حوالے کر دیا گیا ہے' : '⏳ دفتر میں موجود (غیر وصول شدہ)'}
                 </span>
-                {record.officiantType === 'guest' && (
-                  <span className="badge badge-gold">
-                    مہمان نکاح خواں: {record.guestOfficiant?.name || 'دیگر عالم'}
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -107,6 +136,168 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
 
         <div style={{ padding: '24px', maxHeight: '80vh', overflowY: 'auto' }}>
           
+          {/* ============================================================ */}
+          {/* لائف سائیکل ٹریکر (یو سی جمع، کمپیوٹرائزڈ نکاح نامہ، ترسیل)     */}
+          {/* ============================================================ */}
+          <div style={{ background: 'var(--bg-card-subtle)', border: '1.5px solid var(--primary-400)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--primary-900)', marginBottom: '12px' }}>
+              نکاح نامہ رجسٹریشن و لائف سائیکل پراسیسنگ (Lifecycle Tracker):
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
+              
+              {/* مرحلہ ۱: فارم کا اندراج */}
+              <div style={{ background: 'var(--bg-card)', padding: '12px', borderRadius: '8px', border: '1px solid #10b981' }}>
+                <span style={{ fontSize: '0.74rem', color: '#047857', fontWeight: 700, display: 'block' }}>مرحلہ ۱: نکاح نامہ اندراج</span>
+                <strong style={{ fontSize: '0.92rem', color: '#065f46' }}>✓ رجسٹرڈ و تصدیق شدہ</strong>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  رجسٹریشن نمبر: <span className="font-num">{record.serialNo}</span>
+                </div>
+              </div>
+
+              {/* مرحلہ ۲: یونین کونسل میں جمع */}
+              <div style={{ background: record.tracking?.isUcSubmitted ? '#ecfdf5' : '#fffbeb', padding: '12px', borderRadius: '8px', border: `1px solid ${record.tracking?.isUcSubmitted ? '#a7f3d0' : '#fde68a'}` }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>مرحلہ ۲: یونین کونسل میں جمع</span>
+                {record.tracking?.isUcSubmitted ? (
+                  <div>
+                    <strong style={{ fontSize: '0.88rem', color: '#065f46' }}>✓ یو سی میں جمع شدہ</strong>
+                    <div style={{ fontSize: '0.76rem', color: '#047857', marginTop: '2px' }}>
+                      تاریخ: {formatPKDate(record.tracking.ucSubmissionDate)}
+                      {record.tracking.ucDiaryNo ? ` | رسید: ${record.tracking.ucDiaryNo}` : ''}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <strong style={{ fontSize: '0.86rem', color: '#b45309' }}>⏳ جمع کروانا باقی ہے</strong>
+                    {!showUcForm ? (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', marginTop: '6px' }}
+                        onClick={() => setShowUcForm(true)}
+                      >
+                        یو سی میں جمع مارک کریں
+                      </button>
+                    ) : (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', marginTop: '6px' }}>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="ڈائری یا رسید نمبر" 
+                          value={ucDiaryNo} 
+                          onChange={(e) => setUcDiaryNo(e.target.value)}
+                          style={{ fontSize: '0.78rem', padding: '4px 6px', marginBottom: '4px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button type="button" className="btn btn-primary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={handleMarkUcSubmitted}>
+                            محفوظ
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={() => setShowUcForm(false)}>
+                            منسوخ
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* مرحلہ ۳: نادرا کمپیوٹرائزڈ نکاح نامہ (NRC) */}
+              <div style={{ background: record.tracking?.isComputerizedReceived ? '#eff6ff' : '#fffbeb', padding: '12px', borderRadius: '8px', border: `1px solid ${record.tracking?.isComputerizedReceived ? '#bfdbfe' : '#fde68a'}` }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>مرحلہ ۳: کمپیوٹرائزڈ نکاح نامہ (NRC)</span>
+                {record.tracking?.isComputerizedReceived ? (
+                  <div>
+                    <strong style={{ fontSize: '0.88rem', color: '#1e40af' }}>✓ NRC موصول ہو گیا</strong>
+                    <div style={{ fontSize: '0.76rem', color: '#1d4ed8', marginTop: '2px' }}>
+                      {record.tracking.nrcCertificateNo ? `نمبر: ${record.tracking.nrcCertificateNo}` : 'تیار شدہ'}
+                      {record.tracking.nrcReceivedDate ? ` (${formatPKDate(record.tracking.nrcReceivedDate)})` : ''}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <strong style={{ fontSize: '0.86rem', color: '#b45309' }}>⏳ یو سی سے واپسی کا انتظار</strong>
+                    {!showNrcForm ? (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', marginTop: '6px' }}
+                        onClick={() => setShowNrcForm(true)}
+                      >
+                        کمپیوٹرائزڈ نامہ موصول مارک کریں
+                      </button>
+                    ) : (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', marginTop: '6px' }}>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="کمپیوٹرائزڈ نکاح نامہ نمبر" 
+                          value={nrcCertificateNo} 
+                          onChange={(e) => setNrcCertificateNo(e.target.value)}
+                          style={{ fontSize: '0.78rem', padding: '4px 6px', marginBottom: '4px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button type="button" className="btn btn-primary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={handleMarkNrcReceived}>
+                            محفوظ
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={() => setShowNrcForm(false)}>
+                            منسوخ
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* مرحلہ ۴: فریقین کے حوالے */}
+              <div style={{ background: record.delivery?.isDelivered ? '#ecfdf5' : '#fffbeb', padding: '12px', borderRadius: '8px', border: `1px solid ${record.delivery?.isDelivered ? '#a7f3d0' : '#fde68a'}` }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>مرحلہ ۴: فریقین کے حوالے</span>
+                {record.delivery?.isDelivered ? (
+                  <div>
+                    <strong style={{ fontSize: '0.88rem', color: '#065f46' }}>✓ حوالے کر دیا گیا</strong>
+                    <div style={{ fontSize: '0.76rem', color: '#047857', marginTop: '2px' }}>
+                      وصول کنندہ: {record.delivery.deliveredTo} {record.delivery.recipientPhone ? `(${record.delivery.recipientPhone})` : ''}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <strong style={{ fontSize: '0.86rem', color: '#b45309' }}>⏳ دفتر میں موجود ہے</strong>
+                    {!showDeliveryForm ? (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', marginTop: '6px' }}
+                        onClick={() => setShowDeliveryForm(true)}
+                      >
+                        حوالگی مارک کریں
+                      </button>
+                    ) : (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', marginTop: '6px' }}>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="وصول کنندہ کا نام" 
+                          value={deliveryName} 
+                          onChange={(e) => setDeliveryName(e.target.value)}
+                          style={{ fontSize: '0.78rem', padding: '4px 6px', marginBottom: '4px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button type="button" className="btn btn-primary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={handleMarkDelivered}>
+                            محفوظ
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ padding: '3px 6px', fontSize: '0.72rem' }} onClick={() => setShowDeliveryForm(false)}>
+                            منسوخ
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+
           {/* ============================================================ */}
           {/* وصولی، فیس اور تاریخ کی خلاصہ پٹی                             */}
           {/* ============================================================ */}
@@ -138,60 +329,6 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
                   <div>وصول شدہ: <span className="font-num" style={{ color: '#059669', fontWeight: 700 }}>{receivedNum ? `${receivedNum.toLocaleString()} روپے` : 'حسب ضابطہ'}</span></div>
                   <div>اسٹیٹس: <span className="badge badge-green">تصدیق شدہ</span></div>
                 </>
-              )}
-            </div>
-
-            {/* ترسیل کی کیفیت */}
-            <div style={{ background: record.delivery?.isDelivered ? '#ecfdf5' : '#fffbeb', padding: '12px 14px', borderRadius: '10px', border: `1px solid ${record.delivery?.isDelivered ? '#a7f3d0' : '#fde68a'}` }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'block' }}>نکاح نامہ وصولی و حوالگی:</span>
-              {record.delivery?.isDelivered ? (
-                <div>
-                  <strong style={{ color: '#065f46' }}>✓ وصول کنندہ: {record.delivery.deliveredTo || 'فریقین'}</strong>
-                  <div style={{ fontSize: '0.8rem', color: '#047857' }}>تاریخ: {formatPKDate(record.delivery.deliveryDate)} {record.delivery.recipientPhone ? `(${record.delivery.recipientPhone})` : ''}</div>
-                  {record.delivery.deliveryNotes && <div style={{ fontSize: '0.76rem', color: '#4b5563', marginTop: '2px' }}>{record.delivery.deliveryNotes}</div>}
-                </div>
-              ) : (
-                <div>
-                  <strong style={{ color: '#b45309' }}>⏳ دفتر میں موجود ہے</strong>
-                  <div style={{ fontSize: '0.78rem', color: '#92400e', marginBottom: '6px' }}>ابھی تک فریقین کے حوالے نہیں کیا گیا۔</div>
-                  {!showDeliveryForm ? (
-                    <button 
-                      type="button" 
-                      className="btn btn-primary" 
-                      style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                      onClick={() => setShowDeliveryForm(true)}
-                    >
-                      ابھی وصولی مارک کریں
-                    </button>
-                  ) : (
-                    <div style={{ background: '#ffffff', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', marginTop: '6px' }}>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        placeholder="وصول کنندہ کا نام" 
-                        value={deliveryName} 
-                        onChange={(e) => setDeliveryName(e.target.value)}
-                        style={{ fontSize: '0.82rem', padding: '4px 8px', marginBottom: '6px' }}
-                      />
-                      <input 
-                        type="text" 
-                        className="form-control font-num" 
-                        placeholder="رابطہ فون نمبر" 
-                        value={deliveryPhone} 
-                        onChange={(e) => setDeliveryPhone(e.target.value)}
-                        style={{ fontSize: '0.82rem', padding: '4px 8px', marginBottom: '6px' }}
-                      />
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button type="button" className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={handleMarkDelivered}>
-                          محفوظ کریں
-                        </button>
-                        <button type="button" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => setShowDeliveryForm(false)}>
-                          منسوخ
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
               )}
             </div>
 
@@ -382,6 +519,11 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
                   <strong>وکیل دولہا:</strong> {record.groom.vakilName} (ولد {record.groom.vakilFatherName || '-'})
                   {record.groom.vakilCnic && <div className="font-num" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>شناختی کارڈ: {record.groom.vakilCnic}</div>}
                   {record.groom.vakilAddress && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>سکونت: {record.groom.vakilAddress}</div>}
+                  {(record.groom.vakilWitness1?.name || record.groom.vakilWitnesses) && (
+                    <div style={{ marginTop: '4px', fontSize: '0.78rem', background: 'var(--bg-card-subtle)', padding: '4px 6px', borderRadius: '4px' }}>
+                      <strong>گواہانِ تقررِ وکیل:</strong> {record.groom.vakilWitness1?.name ? `${record.groom.vakilWitness1.name} (ولد ${record.groom.vakilWitness1.fatherName || '-'}) ${record.groom.vakilWitness2?.name ? ` و ${record.groom.vakilWitness2.name}` : ''}` : record.groom.vakilWitnesses}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#16a34a' }}>
@@ -417,6 +559,11 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
                   <strong>وکیل دلہن:</strong> {record.bride.vakilName} (ولد {record.bride.vakilFatherName || '-'})
                   {record.bride.vakilCnic && <div className="font-num" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>شناختی کارڈ: {record.bride.vakilCnic}</div>}
                   {record.bride.vakilAddress && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>سکونت: {record.bride.vakilAddress}</div>}
+                  {(record.bride.vakilWitness1?.name || record.bride.vakilWitnesses) && (
+                    <div style={{ marginTop: '4px', fontSize: '0.78rem', background: 'var(--bg-card-subtle)', padding: '4px 6px', borderRadius: '4px' }}>
+                      <strong>گواہانِ تقررِ وکیل:</strong> {record.bride.vakilWitness1?.name ? `${record.bride.vakilWitness1.name} (ولد ${record.bride.vakilWitness1.fatherName || '-'}) ${record.bride.vakilWitness2?.name ? ` و ${record.bride.vakilWitness2.name}` : ''}` : record.bride.vakilWitnesses}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#16a34a' }}>
@@ -459,7 +606,7 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
             </div>
           </div>
 
-          {/* دستخط و مہر جات (خانہ ۲۵) گیلری */}
+          {/* دستخط و مہر جات گیلری */}
           {(() => {
             const signs = record.columnSignatures || {};
             const signatureList = [
@@ -480,7 +627,7 @@ export default function RecordDetailsModal({ record, onClose, onEdit, onPrint, o
             return (
               <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-card)' }}>
                 <h4 style={{ color: 'var(--primary-800)', marginBottom: '12px' }}>
-                  دستخط و مہر جات گیلری (خانہ ۲۵ - کل {signatureList.length} دستخط محفوظ):
+                  دستخط و مہر جات گیلری (کل {signatureList.length} دستخط محفوظ):
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '10px' }}>
                   {signatureList.map(sig => (

@@ -77,10 +77,10 @@ export default function RecordsList({
       matchFilter = r.officiantType === 'guest';
     } else if (filterType === 'self_only') {
       matchFilter = r.officiantType !== 'guest';
-    } else if (filterType === 'computerized') {
-      matchFilter = r.registrationType === 'computerized';
-    } else if (filterType === 'manual_only') {
-      matchFilter = r.registrationType === 'manual_only';
+    } else if (filterType === 'pending_uc') {
+      matchFilter = !r.tracking?.isUcSubmitted;
+    } else if (filterType === 'pending_nrc') {
+      matchFilter = !r.tracking?.isComputerizedReceived;
     }
 
     // مخصوص مہمان نکاح خواں کا انتخاب
@@ -99,7 +99,7 @@ export default function RecordsList({
           <FolderArchive size={26} color="var(--primary-700)" />
           <div>
             <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>تمام رجسٹرڈ نکاح ریکارڈز فولڈرز ({filteredRecords.length})</span>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>ہر نکاح ایک الگ فولڈر، شناختی کارڈز اور ۴ پرتوں کے ساتھ محفوظ ہے</div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>ہر نکاح ایک الگ فولڈر، یو سی جمع اسٹیٹس، کمپیوٹرائزڈ نکاح نامہ اور ۴ پرتوں کے ساتھ محفوظ ہے</div>
           </div>
         </div>
 
@@ -120,12 +120,21 @@ export default function RecordsList({
         </button>
 
         <button 
-          className={`btn ${filterType === 'guest_only' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn ${filterType === 'pending_uc' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          onClick={() => { setFilterType('guest_only'); }}
+          onClick={() => { setFilterType('pending_uc'); }}
         >
-          <UserCheck size={14} />
-          <span>مہمان نکاح خواں کے ({records.filter(r => r.officiantType === 'guest').length})</span>
+          <Building size={14} />
+          <span>یو سی جمع ہونا باقی ({records.filter(r => !r.tracking?.isUcSubmitted).length})</span>
+        </button>
+
+        <button 
+          className={`btn ${filterType === 'pending_nrc' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '6px 12px', fontSize: '0.84rem' }}
+          onClick={() => { setFilterType('pending_nrc'); }}
+        >
+          <Calendar size={14} />
+          <span>کمپیوٹرائزڈ نامہ کے منتظر ({records.filter(r => !r.tracking?.isComputerizedReceived).length})</span>
         </button>
 
         <button 
@@ -152,11 +161,12 @@ export default function RecordsList({
         </button>
 
         <button 
-          className={`btn ${filterType === 'computerized' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn ${filterType === 'guest_only' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          onClick={() => { setFilterType('computerized'); }}
+          onClick={() => { setFilterType('guest_only'); }}
         >
-          کمپیوٹرائزڈ سرٹیفکیٹ والے ({records.filter(r => r.registrationType === 'computerized').length})
+          <UserCheck size={14} />
+          <span>مہمان نکاح خواں کے ({records.filter(r => r.officiantType === 'guest').length})</span>
         </button>
       </div>
 
@@ -224,7 +234,7 @@ export default function RecordsList({
                 <th>محفوظ فولڈر ٹائٹل / دولہا و دلہن</th>
                 <th>تاریخِ نکاح</th>
                 <th>نکاح خواں</th>
-                <th>قسم نکاح نامہ</th>
+                <th>یو سی و کمپیوٹرائزڈ پراسیسنگ</th>
                 <th>فیس کی کیفیت</th>
                 <th>وصولی / ترسیل</th>
                 <th style={{ textAlign: 'center' }}>اقدامات</th>
@@ -275,11 +285,16 @@ export default function RecordsList({
                       )}
                     </td>
 
-                    {/* قسم نکاح نامہ */}
+                    {/* یو سی و کمپیوٹرائزڈ پراسیسنگ */}
                     <td>
-                      <span className={`badge ${r.registrationType === 'computerized' ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: '0.75rem' }}>
-                        {r.registrationType === 'computerized' ? 'کمپیوٹرائزڈ' : 'صرف دستی'}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span className={`badge ${r.tracking?.isUcSubmitted ? 'badge-green' : 'badge-gold'}`} style={{ fontSize: '0.72rem' }}>
+                          {r.tracking?.isUcSubmitted ? '✓ یو سی جمع شدہ' : '⏳ یو سی جمع باقی'}
+                        </span>
+                        <span className={`badge ${r.tracking?.isComputerizedReceived ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: '0.72rem' }}>
+                          {r.tracking?.isComputerizedReceived ? '✓ کمپیوٹرائزڈ تیار' : '⏳ NRC منتظر'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* فیس */}

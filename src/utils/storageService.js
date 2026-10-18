@@ -341,19 +341,34 @@ export const storageService = {
       manualNikkahImgs: Array.isArray(r.vaultDocuments?.manualNikkahImgs) ? r.vaultDocuments.manualNikkahImgs : []
     };
 
+    const tracking = {
+      isRegistered: true,
+      isUcSubmitted: Boolean(r.tracking?.isUcSubmitted),
+      ucSubmissionDate: r.tracking?.ucSubmissionDate || '',
+      ucDiaryNo: r.tracking?.ucDiaryNo || '',
+      isComputerizedReceived: Boolean(r.tracking?.isComputerizedReceived || r.vaultDocuments?.computerizedNikkahImg),
+      nrcReceivedDate: r.tracking?.nrcReceivedDate || '',
+      nrcCertificateNo: r.tracking?.nrcCertificateNo || '',
+      isDelivered: Boolean(r.delivery?.isDelivered ?? r.tracking?.isDelivered ?? false)
+    };
+
     return {
       ...r,
       folderTitle: r.folderTitle || `${r.serialNo || '00'} - ${r.groom?.name || 'دولہا'} و ${r.bride?.name || 'دلہن'}${r.officiantType === 'guest' ? ' (مہمان نکاح خواں)' : ''}`,
-      registrationType: r.registrationType || (r.tracking?.isComputerizedReceived ? 'computerized' : 'manual_only'),
+      registrationType: r.registrationType || (tracking.isComputerizedReceived ? 'computerized' : 'manual_only'),
       officiantType: r.officiantType || 'self',
       guestOfficiant: r.guestOfficiant || { name: '', fatherName: '', masjidOrArea: '', phone: '' },
       skippedColumns: Array.isArray(r.skippedColumns) ? r.skippedColumns : [],
       columnSignatures: r.columnSignatures || {},
       vaultDocuments: vaultDocs,
+      tracking,
       groom: {
         ...r.groom,
         dob: r.groom?.dob || '',
         hasVakil: r.groom?.hasVakil ?? (r.groom?.vakilName ? true : false),
+        hasVakilWitnesses: r.groom?.hasVakilWitnesses || false,
+        vakilWitness1: r.groom?.vakilWitness1 || { name: '', fatherName: '', cnic: '', address: '' },
+        vakilWitness2: r.groom?.vakilWitness2 || { name: '', fatherName: '', cnic: '', address: '' },
         cnicImageFront: vaultDocs.groomCnicFront,
         cnicImageBack: vaultDocs.groomCnicBack
       },
@@ -361,11 +376,14 @@ export const storageService = {
         ...r.bride,
         dob: r.bride?.dob || '',
         hasVakil: r.bride?.hasVakil ?? (r.bride?.vakilName ? true : false),
+        hasVakilWitnesses: r.bride?.hasVakilWitnesses || false,
+        vakilWitness1: r.bride?.vakilWitness1 || { name: '', fatherName: '', cnic: '', address: '' },
+        vakilWitness2: r.bride?.vakilWitness2 || { name: '', fatherName: '', cnic: '', address: '' },
         cnicImageFront: vaultDocs.brideCnicFront,
         cnicImageBack: vaultDocs.brideCnicBack
       },
       delivery: {
-        isDelivered: r.delivery?.isDelivered ?? r.tracking?.isDelivered ?? false,
+        isDelivered: tracking.isDelivered,
         deliveredTo: r.delivery?.deliveredTo || '',
         deliveryDate: r.delivery?.deliveryDate || '',
         recipientPhone: r.delivery?.recipientPhone || '',
@@ -465,6 +483,45 @@ export const storageService = {
         ...record.tracking,
         isDelivered: true
       }
+    });
+  },
+
+  // یونین کونسل میں جمع شدہ مارک کریں
+  markUcSubmitted(id, ucDiaryNo, ucSubmissionDate) {
+    const record = this.getRecordById(id);
+    if (!record) return null;
+
+    const tracking = {
+      ...(record.tracking || {}),
+      isUcSubmitted: true,
+      ucSubmissionDate: ucSubmissionDate || new Date().toISOString().slice(0, 10),
+      ucDiaryNo: ucDiaryNo || 'ڈائری/رسید شدہ'
+    };
+
+    return this.updateRecord(id, { tracking });
+  },
+
+  // کمپیوٹرائزڈ نکاح نامہ موصول مارک کریں
+  markComputerizedReceived(id, nrcCertificateNo, nrcReceivedDate, computerizedNikkahImg = null) {
+    const record = this.getRecordById(id);
+    if (!record) return null;
+
+    const tracking = {
+      ...(record.tracking || {}),
+      isComputerizedReceived: true,
+      nrcReceivedDate: nrcReceivedDate || new Date().toISOString().slice(0, 10),
+      nrcCertificateNo: nrcCertificateNo || 'NRC-COMPLETED'
+    };
+
+    const vaultDocuments = {
+      ...(record.vaultDocuments || {}),
+      ...(computerizedNikkahImg ? { computerizedNikkahImg } : {})
+    };
+
+    return this.updateRecord(id, { 
+      tracking, 
+      vaultDocuments,
+      registrationType: 'computerized' 
     });
   },
 
